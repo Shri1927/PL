@@ -1,0 +1,138 @@
+{
+  "info": {
+    "name": "Personal Loan LOS APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"fullName\":\"Demo User\",\"email\":\"demo@example.com\",\"mobile\":\"9999990011\",\"password\":\"Password@123\"}"
+        }
+      }
+    },
+    {
+      "name": "Auth Verify OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/auth/verify-otp",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"mobile\":\"9999990011\",\"otp\":\"123456\"}"
+        }
+      }
+    },
+    {
+      "name": "Create Loan Application",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/workflow/applications?userId=3",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"loanPurpose\":\"Medical Emergency\",\"requestedAmount\":500000,\"tenureMonths\":36,\"monthlyIncome\":120000,\"existingEmi\":15000}"
+        }
+      }
+    },
+    {
+      "name": "KYC Verify",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/workflow/applications/{{appId}}/kyc",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"pan\":\"ABCDE1234F\",\"aadhaarLast4\":\"1234\"}"
+        }
+      }
+    },
+    {
+      "name": "Credit Assessment",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/workflow/applications/{{appId}}/credit",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"bureauScore\":765,\"internalScore\":780}"
+        }
+      }
+    },
+    {
+      "name": "Generate Offer",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/workflow/applications/{{appId}}/offer"
+      }
+    },
+    {
+      "name": "Accept Offer",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/workflow/applications/{{appId}}/offer/accept",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"accepted\":true}"
+        }
+      }
+    },
+    {
+      "name": "Execute Agreement",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/workflow/applications/{{appId}}/agreement"
+      }
+    },
+    {
+      "name": "Disbursement",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/workflow/applications/{{appId}}/disbursement",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"bankAccount\":\"123456789012\",\"ifsc\":\"HDFC0001234\"}"
+        }
+      }
+    },
+    {
+      "name": "Pay EMI",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/v1/workflow/applications/{{appId}}/emi/pay",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"amount\":18000,\"gatewayRef\":\"PAY_ABC123\"}"
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "appId", "value": "1" }
+  ]
+}
