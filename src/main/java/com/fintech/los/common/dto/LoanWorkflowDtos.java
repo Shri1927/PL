@@ -78,4 +78,22 @@ public final class LoanWorkflowDtos {
         @NotBlank
         private String gatewayRef;
     }
+
+    @Data
+    public static class DocumentUploadRequest {
+        @NotBlank
+        private String documentType;
+        @NotBlank
+        private String fileName;
+        private String base64Content;
+    }
+
+    @Data
+    public static class DocumentVerifyRequest {
+        @NotNull
+        private Long documentId;
+        @NotBlank
+        private String status; // VERIFIED or FAILED
+        private String remarks;
+    }
 }

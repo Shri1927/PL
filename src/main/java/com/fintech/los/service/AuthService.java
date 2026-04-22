@@ -9,6 +9,7 @@ import com.fintech.los.domain.auth.repository.UserRepository;
 import com.fintech.los.domain.loan.LoanEnums.UserRole;
 import com.fintech.los.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -52,6 +54,7 @@ public class AuthService {
 
         String otp = String.format("%06d", new Random().nextInt(1_000_000));
         redisTemplate.opsForValue().set("otp:" + request.getMobile(), otp, 5, TimeUnit.MINUTES);
+        log.info("\n===== OTP for mobile {} : {} =====", request.getMobile(), otp);
         redisTemplate.delete(verifyAttemptKey(request.getMobile()));
     }
 

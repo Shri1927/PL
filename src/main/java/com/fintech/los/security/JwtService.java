@@ -1,31 +1,33 @@
 package com.fintech.los.security;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.security.KeyPair;
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 
 @Service
 public class JwtService {
-    private KeyPair keyPair;
-    @Value("${app.security.issuer}")
-    private String issuer;
-    @Value("${app.security.access-token-minutes}")
-    private long accessMinutes;
-    @Value("${app.security.refresh-token-days}")
-    private long refreshDays;
+    private final SecretKey secretKey;
+    private final String issuer;
+    private final long accessMinutes;
+    private final long refreshDays;
 
-    @PostConstruct
-    void init() {
-        this.keyPair = Keys.keyPairFor(SignatureAlgorithm.RS256);
+    public JwtService(
+            @Value("${app.security.issuer}") String issuer,
+            @Value("${app.security.access-token-minutes}") long accessMinutes,
+            @Value("${app.security.refresh-token-days}") long refreshDays,
+            @Value("${app.security.jwt-secret:MySuperSecretKeyForJWTSigningThatIsAtLeast256BitsLong!!}") String secret) {
+        this.issuer = issuer;
+        this.accessMinutes = accessMinutes;
+        this.refreshDays = refreshDays;
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateAccessToken(String subject, Map<String, Object> claims) {
@@ -36,7 +38,7 @@ public class JwtService {
                 .claims(claims)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(accessMinutes * 60)))
-                .signWith(keyPair.getPrivate())
+                .signWith(secretKey)
                 .compact();
     }
 
@@ -47,13 +49,13 @@ public class JwtService {
                 .subject(subject)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(refreshDays * 24 * 3600)))
-                .signWith(keyPair.getPrivate())
+                .signWith(secretKey)
                 .compact();
     }
 
     public Claims parse(String token) {
         return Jwts.parser()
-                .verifyWith(keyPair.getPublic())
+                .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

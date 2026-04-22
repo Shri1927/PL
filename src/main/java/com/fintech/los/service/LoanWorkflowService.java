@@ -8,6 +8,8 @@ import com.fintech.los.domain.credit.CreditAssessment;
 import com.fintech.los.domain.credit.repository.CreditAssessmentRepository;
 import com.fintech.los.domain.disbursement.Disbursement;
 import com.fintech.los.domain.disbursement.repository.DisbursementRepository;
+import com.fintech.los.domain.document.LoanDocument;
+import com.fintech.los.domain.document.repository.LoanDocumentRepository;
 import com.fintech.los.domain.kyc.KycDetails;
 import com.fintech.los.domain.kyc.repository.KycDetailsRepository;
 import com.fintech.los.domain.lms.EmiSchedule;
@@ -32,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 @Service
@@ -43,6 +46,7 @@ public class LoanWorkflowService {
     private final LoanOfferRepository loanOfferRepository;
     private final LoanAgreementRepository loanAgreementRepository;
     private final DisbursementRepository disbursementRepository;
+    private final LoanDocumentRepository loanDocumentRepository;
     private final EmiScheduleRepository emiScheduleRepository;
     private final LoanTransactionRepository loanTransactionRepository;
     private final WorkflowEventPublisher eventPublisher;
@@ -93,9 +97,87 @@ public class LoanWorkflowService {
         return saved;
     }
 
+    // ── Stage 04: Document Upload & Verification ──
+
+    @Transactional
+    public LoanDocument uploadDocument(Long applicationId, DocumentUploadRequest req) {
+        LoanApplication app = getApplication(applicationId);
+        if (app.getStatus() != ApplicationStatus.KYC_VERIFIED && app.getStatus() != ApplicationStatus.DRAFT) {
+            throw new BusinessException("Documents can only be uploaded for DRAFT or KYC_VERIFIED applications");
+        }
+        LoanDocument doc = new LoanDocument();
+        doc.setApplicationId(applicationId);
+        doc.setDocumentType(req.getDocumentType());
+        doc.setStorageUrl("/documents/" + applicationId + "/" + req.getFileName());
+        doc.setVerificationStatus(VerificationStatus.PENDING);
+        doc.setOcrPayload("{\"extracted\": true, \"confidence\": 0.95, \"documentType\": \"" + req.getDocumentType() + "\", \"fileName\": \"" + req.getFileName() + "\"}");
+        doc.setQualityScore(new BigDecimal("0." + (80 + new Random().nextInt(20))));
+        doc.setCreatedAt(LocalDateTime.now());
+        doc.setUpdatedAt(LocalDateTime.now());
+        LoanDocument saved = loanDocumentRepository.save(doc);
+        eventPublisher.publish("DOCUMENT_UPLOADED", applicationId, req.getDocumentType());
+        return saved;
+    }
+
+    @Transactional(readOnly = true)
+    public List<LoanDocument> getDocuments(Long applicationId) {
+        getApplication(applicationId); // ensure exists
+        return loanDocumentRepository.findByApplicationId(applicationId);
+    }
+
+    @Transactional
+    public LoanDocument verifyDocument(Long applicationId, DocumentVerifyRequest req) {
+        LoanDocument doc = loanDocumentRepository.findById(req.getDocumentId())
+                .orElseThrow(() -> new BusinessException("Document not found"));
+        if (!doc.getApplicationId().equals(applicationId)) {
+            throw new BusinessException("Document does not belong to this application");
+        }
+        doc.setVerificationStatus("VERIFIED".equals(req.getStatus()) ? VerificationStatus.VERIFIED : VerificationStatus.FAILED);
+        doc.setUpdatedAt(LocalDateTime.now());
+        LoanDocument saved = loanDocumentRepository.save(doc);
+
+        // Auto-set DOCS_COMPLETE if all docs are verified
+        List<LoanDocument> allDocs = loanDocumentRepository.findByApplicationId(applicationId);
+        boolean allVerified = allDocs.stream().allMatch(d -> d.getVerificationStatus() == VerificationStatus.VERIFIED);
+        if (allVerified && !allDocs.isEmpty()) {
+            LoanApplication app = getApplication(applicationId);
+            app.setStatus(ApplicationStatus.DOCS_COMPLETE);
+            app.setStage("STAGE_04");
+            app.setUpdatedAt(LocalDateTime.now());
+            loanApplicationRepository.save(app);
+            eventPublisher.publish("DOCS_COMPLETE", applicationId, "All documents verified");
+        }
+        return saved;
+    }
+
+    @Transactional
+    public List<LoanDocument> autoVerifyDocuments(Long applicationId) {
+        LoanApplication app = getApplication(applicationId);
+        List<LoanDocument> docs = loanDocumentRepository.findByApplicationId(applicationId);
+        if (docs.isEmpty()) {
+            throw new BusinessException("No documents uploaded to verify");
+        }
+        for (LoanDocument doc : docs) {
+            doc.setVerificationStatus(VerificationStatus.VERIFIED);
+            doc.setQualityScore(new BigDecimal("0." + (85 + new Random().nextInt(15))));
+            doc.setUpdatedAt(LocalDateTime.now());
+            loanDocumentRepository.save(doc);
+        }
+        app.setStatus(ApplicationStatus.DOCS_COMPLETE);
+        app.setStage("STAGE_04");
+        app.setUpdatedAt(LocalDateTime.now());
+        loanApplicationRepository.save(app);
+        eventPublisher.publish("DOCS_COMPLETE", applicationId, "Auto-verified " + docs.size() + " documents");
+        return docs;
+    }
+
     @Transactional
     public CreditAssessment assessCredit(Long applicationId, CreditDecisionRequest req) {
         LoanApplication app = getApplication(applicationId);
+        // Allow credit assessment from KYC_VERIFIED or DOCS_COMPLETE
+        if (app.getStatus() != ApplicationStatus.KYC_VERIFIED && app.getStatus() != ApplicationStatus.DOCS_COMPLETE) {
+            throw new BusinessException("Credit assessment requires KYC verification or document completion");
+        }
         CreditAssessment c = creditAssessmentRepository.findByApplicationId(applicationId).orElse(new CreditAssessment());
         c.setApplicationId(applicationId);
         c.setBureauScore(req.getBureauScore());
@@ -125,7 +207,7 @@ public class LoanWorkflowService {
     public LoanOffer generateOffer(Long applicationId) {
         LoanApplication app = getApplication(applicationId);
         if (app.getStatus() != ApplicationStatus.APPROVED) {
-            throw new BusinessException("Offer generation requires approved application");
+            throw new BusinessException("Offer generation requires approved application — current status: " + app.getStatus());
         }
         LoanOffer o = loanOfferRepository.findByApplicationId(applicationId).orElse(new LoanOffer());
         o.setApplicationId(applicationId);
@@ -135,6 +217,12 @@ public class LoanWorkflowService {
         o.setApr(app.getAnnualInterestRate().add(new BigDecimal("0.75")));
         o.setCreatedAt(LocalDateTime.now());
         o.setUpdatedAt(LocalDateTime.now());
+
+        app.setStatus(ApplicationStatus.APPROVED);
+        app.setStage("STAGE_06");
+        app.setUpdatedAt(LocalDateTime.now());
+        loanApplicationRepository.save(app);
+
         LoanOffer saved = loanOfferRepository.save(o);
         eventPublisher.publish("LOAN_OFFER_GENERATED", applicationId, saved.getApr().toPlainString());
         return saved;
@@ -244,6 +332,30 @@ public class LoanWorkflowService {
     }
 
     @Transactional(readOnly = true)
+    public Page<LoanApplication> getUserApplications(Long userId, Pageable pageable) {
+        return loanApplicationRepository.findByUserId(userId, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getUserStats(Long userId) {
+        long total = loanApplicationRepository.countByUserId(userId);
+        long approved = loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.APPROVED)
+                + loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.ACCEPTED)
+                + loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.AGREEMENT_EXECUTED);
+        long inProgress = loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.DRAFT)
+                + loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.KYC_VERIFIED)
+                + loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.DOCS_COMPLETE);
+        long disbursed = loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.DISBURSED)
+                + loanApplicationRepository.countByUserIdAndStatus(userId, ApplicationStatus.ACTIVE);
+        return java.util.Map.of(
+                "totalApplications", total,
+                "approvedApplications", approved,
+                "inProgressApplications", inProgress,
+                "disbursedApplications", disbursed
+        );
+    }
+
+    @Transactional(readOnly = true)
     public Page<LoanApplication> listManualReviewQueue(Pageable pageable) {
         return loanApplicationRepository.findByStatus(ApplicationStatus.KYC_VERIFIED, pageable);
     }
@@ -299,6 +411,52 @@ public class LoanWorkflowService {
             case D -> new BigDecimal("17.50");
             default -> new BigDecimal("20.00");
         };
+    }
+
+    @Transactional(readOnly = true)
+    public LoanApplication getApplicationById(Long applicationId) {
+        return getApplication(applicationId);
+    }
+
+    // ── Data retrieval methods for frontend display ──
+
+    @Transactional(readOnly = true)
+    public KycDetails getKycDetails(Long applicationId) {
+        return kycDetailsRepository.findByApplicationId(applicationId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public CreditAssessment getCreditAssessment(Long applicationId) {
+        return creditAssessmentRepository.findByApplicationId(applicationId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public LoanOffer getOffer(Long applicationId) {
+        return loanOfferRepository.findByApplicationId(applicationId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public LoanAgreement getAgreement(Long applicationId) {
+        return loanAgreementRepository.findByApplicationId(applicationId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Disbursement getDisbursement(Long applicationId) {
+        return disbursementRepository.findByApplicationId(applicationId).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getFullApplicationDetails(Long applicationId) {
+        LoanApplication app = getApplication(applicationId);
+        Map<String, Object> details = new java.util.HashMap<>();
+        details.put("application", app);
+        details.put("kyc", getKycDetails(applicationId));
+        details.put("documents", getDocuments(applicationId));
+        details.put("credit", getCreditAssessment(applicationId));
+        details.put("offer", getOffer(applicationId));
+        details.put("agreement", getAgreement(applicationId));
+        details.put("disbursement", getDisbursement(applicationId));
+        return details;
     }
 
     private LoanApplication getApplication(Long applicationId) {
