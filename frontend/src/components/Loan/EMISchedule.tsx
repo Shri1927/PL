@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
+import { ArrowLeft, Calendar, CheckCircle, DollarSign, TrendingUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const EMISchedule = () => {
   const { applicationId } = useParams();
@@ -51,24 +52,31 @@ const EMISchedule = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-lg text-gray-600">Loading EMI schedule...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin"></div>
+          <p className="text-lg text-gray-600 font-medium">Loading EMI schedule...</p>
+        </div>
       </div>
     );
   }
 
   if (error && !emiSchedule) {
     return (
-      <div className="min-h-screen bg-gray-100 p-4">
+      <div className="min-h-screen p-4">
         <div className="max-w-4xl mx-auto">
           <button
             onClick={() => navigate('/dashboard')}
-            className="mb-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="mb-6 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all"
           >
-            ← Back to Dashboard
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Dashboard</span>
           </button>
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
+          <div className="card-modern p-6">
+            <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+              <span className="text-lg">⚠️</span>
+              <span className="text-sm font-medium">{error}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -76,72 +84,108 @@ const EMISchedule = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
+    <div className="min-h-screen py-8 px-4">
       <div className="max-w-6xl mx-auto">
         <button
           onClick={() => navigate('/dashboard')}
-          className="mb-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          className="mb-6 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all"
         >
-          ← Back to Dashboard
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back to Dashboard</span>
         </button>
 
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">EMI Schedule</h1>
-              <p className="text-gray-600">Application ID: {applicationId}</p>
+        <div className="card-modern p-8 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shadow-lg shadow-violet-500/30">
+                <Calendar className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gradient">EMI Schedule</h1>
+                <p className="text-gray-500 text-sm">Application ID: {applicationId}</p>
+              </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Total Outstanding</p>
-              <p className="text-3xl font-bold text-indigo-600">
+              <p className="text-sm text-gray-600 font-medium">Total Outstanding</p>
+              <p className="text-3xl font-bold text-gradient">
                 ₹{emiSchedule?.totalOutstanding?.toLocaleString() || 0}
               </p>
             </div>
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-              <p className="text-sm text-blue-600 font-semibold">Total EMIs</p>
-              <p className="text-2xl font-bold text-blue-800">{emiSchedule?.totalEmis}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="card-modern p-6 card-hover">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Total</span>
+              </div>
+              <p className="text-sm text-gray-600 font-semibold mb-1">Total EMIs</p>
+              <p className="text-3xl font-bold text-blue-600">{emiSchedule?.totalEmis}</p>
             </div>
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-              <p className="text-sm text-green-600 font-semibold">Paid EMIs</p>
-              <p className="text-2xl font-bold text-green-800">{emiSchedule?.paidEmis}</p>
+            <div className="card-modern p-6 card-hover">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full">Paid</span>
+              </div>
+              <p className="text-sm text-gray-600 font-semibold mb-1">Paid EMIs</p>
+              <p className="text-3xl font-bold text-emerald-600">{emiSchedule?.paidEmis}</p>
             </div>
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
-              <p className="text-sm text-orange-600 font-semibold">Remaining EMIs</p>
-              <p className="text-2xl font-bold text-orange-800">{emiSchedule?.totalEmis - emiSchedule?.paidEmis}</p>
+            <div className="card-modern p-6 card-hover">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-semibold text-amber-600 bg-amber-100 px-3 py-1 rounded-full">Due</span>
+              </div>
+              <p className="text-sm text-gray-600 font-semibold mb-1">Remaining EMIs</p>
+              <p className="text-3xl font-bold text-amber-600">{emiSchedule?.totalEmis - emiSchedule?.paidEmis}</p>
             </div>
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-              <p className="text-sm text-purple-600 font-semibold">Monthly EMI</p>
-              <p className="text-2xl font-bold text-purple-800">
+            <div className="card-modern p-6 card-hover">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                  <DollarSign className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-semibold text-violet-600 bg-violet-100 px-3 py-1 rounded-full">Monthly</span>
+              </div>
+              <p className="text-sm text-gray-600 font-semibold mb-1">Monthly EMI</p>
+              <p className="text-3xl font-bold text-violet-600">
                 ₹{emiSchedule?.monthlyEmi?.toLocaleString()}
               </p>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-4 mb-6 border-b">
+          <div className="flex gap-2 mb-6 border-b border-gray-200">
             <button
               onClick={() => setActiveTab('schedule')}
-              className={`px-6 py-3 font-semibold ${
+              className={`px-6 py-3 font-semibold rounded-t-xl transition-all ${
                 activeTab === 'schedule'
-                  ? 'border-b-2 border-indigo-600 text-indigo-600'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
-              EMI Schedule
+              <span className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                <span>EMI Schedule</span>
+              </span>
             </button>
             <button
               onClick={() => setActiveTab('transactions')}
-              className={`px-6 py-3 font-semibold ${
+              className={`px-6 py-3 font-semibold rounded-t-xl transition-all ${
                 activeTab === 'transactions'
-                  ? 'border-b-2 border-indigo-600 text-indigo-600'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
               }`}
             >
-              Payment History
+              <span className="flex items-center gap-2">
+                <History className="w-4 h-4" />
+                <span>Payment History</span>
+              </span>
             </button>
           </div>
 
@@ -176,12 +220,12 @@ const EMISchedule = () => {
                       <td className="py-3 px-4 text-gray-800">₹{installment.outstandingBalance.toLocaleString()}</td>
                       <td className="py-3 px-4">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
                             installment.status === 'PAID'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                               : installment.status === 'DUE'
-                              ? 'bg-orange-100 text-orange-800'
-                              : 'bg-gray-100 text-gray-800'
+                              ? 'bg-amber-100 text-amber-700 border-amber-200'
+                              : 'bg-gray-100 text-gray-700 border-gray-200'
                           }`}
                         >
                           {installment.status}
@@ -191,13 +235,16 @@ const EMISchedule = () => {
                         {installment.status === 'DUE' && (
                           <button
                             onClick={() => handlePayment(installment.installmentNumber)}
-                            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm"
+                            className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg text-sm font-semibold shadow-md shadow-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/40 transition-all hover:-translate-y-0.5"
                           >
                             Pay Now
                           </button>
                         )}
                         {installment.status === 'PAID' && (
-                          <span className="text-green-600 font-semibold">✓ Paid</span>
+                          <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Paid</span>
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -241,7 +288,7 @@ const EMISchedule = () => {
                           {new Date(transaction.paymentDate).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                          <span className="px-3 py-1.5 rounded-full text-xs font-semibold border bg-emerald-100 text-emerald-700 border-emerald-200">
                             {transaction.status}
                           </span>
                         </td>

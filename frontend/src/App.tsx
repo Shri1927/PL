@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { DarkModeProvider } from './contexts/DarkModeContext';
 import Navbar from './components/common/Navbar';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
@@ -20,9 +21,10 @@ import AdminDashboard from './components/Admin/AdminDashboard';
 
 function App() {
   return (
-    <AuthProvider>
-      <Navbar />
-      <Routes>
+    <DarkModeProvider>
+      <AuthProvider>
+        <Navbar />
+        <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -98,7 +100,8 @@ function App() {
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </AuthProvider>
+      </AuthProvider>
+    </DarkModeProvider>
   );
 }
 

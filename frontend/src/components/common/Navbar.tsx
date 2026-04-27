@@ -1,63 +1,205 @@
-import React from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useDarkMode } from '../../contexts/DarkModeContext';
+import { Menu, X, FileText, Settings, LogOut, User, LayoutDashboard, Moon, Sun } from 'lucide-react';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
+  const { darkMode, toggleDarkMode } = useDarkMode();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+    setMobileMenuOpen(false);
   };
 
   return (
-    <nav className="bg-indigo-600 text-white shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-        <Link to="/" className="text-2xl font-bold">
-          🏦 Personal Loan LOS
-        </Link>
+    <nav className="sticky top-0 z-50 glass-card border-b border-white/20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg shadow-violet-500/30 group-hover:shadow-xl group-hover:shadow-violet-500/40 transition-all duration-300">
+              <span className="text-white text-xl">💰</span>
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-xl font-bold text-gradient">LoanHub</h1>
+              <p className="text-xs text-gray-500">Personal Loan LOS</p>
+            </div>
+          </Link>
 
-        <div className="flex items-center gap-6">
-          {isAuthenticated ? (
-            <>
-              <Link to="/dashboard" className="hover:text-indigo-200 transition">
-                Dashboard
-              </Link>
-              <Link to="/applications" className="hover:text-indigo-200 transition">
-                My Applications
-              </Link>
-              {user?.role === 'ADMIN' && (
-                <Link to="/admin" className="hover:text-indigo-200 transition font-semibold">
-                  Admin Panel
-                </Link>
-              )}
-
-              <div className="flex items-center gap-4 pl-6 border-l border-indigo-400">
-                <div className="text-right">
-                  <p className="font-semibold">{user?.name}</p>
-                  <p className="text-xs text-indigo-200">{user?.role}</p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 rounded-lg transition"
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-1">
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to="/dashboard"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
                 >
-                  Logout
+                  <LayoutDashboard size={18} />
+                  <span className="font-medium">Dashboard</span>
+                </Link>
+                <Link
+                  to="/applications"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                >
+                  <FileText size={18} />
+                  <span className="font-medium">Applications</span>
+                </Link>
+                {user?.role === 'ADMIN' && (
+                  <Link
+                    to="/admin"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                  >
+                    <Settings size={18} />
+                    <span className="font-medium">Admin</span>
+                  </Link>
+                )}
+
+                {/* Dark Mode Toggle */}
+                <button
+                  onClick={toggleDarkMode}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                >
+                  {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+                  <span className="font-medium hidden lg:inline">{darkMode ? 'Light' : 'Dark'}</span>
                 </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="hover:text-indigo-200 transition">
-                Login
-              </Link>
-              <Link to="/register" className="px-4 py-2 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition">
-                Register
-              </Link>
-            </>
-          )}
+
+                {/* User Profile & Logout */}
+                <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center text-white font-semibold shadow-md">
+                      {user?.name?.charAt(0) || 'U'}
+                    </div>
+                    <div className="hidden lg:block">
+                      <p className="text-sm font-semibold text-gray-800">{user?.name}</p>
+                      <p className="text-xs text-gray-500">{user?.role}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 hover:-translate-y-0.5 transition-all duration-300"
+                  >
+                    <LogOut size={18} />
+                    <span className="font-medium">Logout</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                >
+                  <User size={18} />
+                  <span className="font-medium">Login</span>
+                </Link>
+                <Link
+                  to="/register"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  <span className="font-medium">Get Started</span>
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl hover:bg-violet-50 transition-colors"
+          >
+            {mobileMenuOpen ? <X size={24} className="text-gray-600" /> : <Menu size={24} className="text-gray-600" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-gray-200 bg-white/95 backdrop-blur-lg">
+          <div className="px-4 py-4 space-y-2">
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                >
+                  <LayoutDashboard size={20} />
+                  <span className="font-medium">Dashboard</span>
+                </Link>
+                <Link
+                  to="/applications"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                >
+                  <FileText size={20} />
+                  <span className="font-medium">Applications</span>
+                </Link>
+                {user?.role === 'ADMIN' && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                  >
+                    <Settings size={20} />
+                    <span className="font-medium">Admin Panel</span>
+                  </Link>
+                )}
+
+                {/* Dark Mode Toggle - Mobile */}
+                <button
+                  onClick={toggleDarkMode}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                >
+                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  <span className="font-medium">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+                </button>
+
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-white font-semibold shadow-md">
+                      {user?.name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">{user?.name}</p>
+                      <p className="text-xs text-gray-500">{user?.role}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 mt-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-300"
+                  >
+                    <LogOut size={20} />
+                    <span className="font-medium">Logout</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                >
+                  <User size={20} />
+                  <span className="font-medium">Login</span>
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 mt-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-300"
+                >
+                  <span className="font-medium">Get Started</span>
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
