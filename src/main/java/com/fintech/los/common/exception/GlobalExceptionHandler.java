@@ -38,8 +38,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ConstraintViolationException.class, Exception.class})
     public ResponseEntity<ApiResponse<Void>> handleUnhandled(Exception ex) {
+        String message = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                ApiResponse.<Void>builder().timestamp(Instant.now()).success(false).message("Internal server error").build()
+                ApiResponse.<Void>builder()
+                        .timestamp(Instant.now())
+                        .success(false)
+                        .message("Internal server error: " + message)
+                        .build()
         );
     }
 }

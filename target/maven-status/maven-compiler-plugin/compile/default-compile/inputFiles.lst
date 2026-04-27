@@ -35,6 +35,7 @@ C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\domain\offer\LoanOffer.j
 C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\domain\offer\repository\LoanOfferRepository.java
 C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\domain\underwriter\repository\UnderwriterReviewRepository.java
 C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\domain\underwriter\UnderwriterReview.java
+C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\integration\cloudinary\CloudinaryConfig.java
 C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\integration\notification\WorkflowEventConsumer.java
 C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\integration\notification\WorkflowEventPublisher.java
 C:\Users\shris\Desktop\PL\src\main\java\com\fintech\los\PersonalLoanLosApplication.java

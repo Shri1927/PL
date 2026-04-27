@@ -61,6 +61,16 @@ public class LoanWorkflowController {
         return ok(service.createApplication(userId, req), "Application created in DRAFT state");
     }
 
+    @PutMapping("/applications/{id}/draft")
+    public ApiResponse<LoanApplication> updateDraft(@PathVariable Long id, @RequestBody UpdateApplicationRequest req) {
+        return ok(service.updateApplicationDraft(id, req), "Draft updated");
+    }
+
+    @PostMapping("/applications/{id}/submit")
+    public ApiResponse<LoanApplication> submit(@PathVariable Long id) {
+        return ok(service.submitApplication(id), "Application submitted");
+    }
+
     // Stage 03 — KYC Verification
     @PostMapping("/applications/{id}/kyc")
     public ApiResponse<KycDetails> kyc(@PathVariable Long id, @Valid @RequestBody KycRequest req) {
@@ -143,10 +153,39 @@ public class LoanWorkflowController {
         return ok(service.getDisbursement(id), "Disbursement details");
     }
 
-    // Stage 10 — EMI Payment
-    @PostMapping("/applications/{id}/emi/pay")
-    public ApiResponse<LoanTransaction> emiPay(@PathVariable Long id, @Valid @RequestBody EmiPaymentRequest req) {
-        return ok(service.payEmi(id, req), "EMI payment captured");
+    @PostMapping("/applications/{id}/mandate/register")
+    public ApiResponse<LoanApplication> registerMandate(@PathVariable Long id) {
+        return ok(service.registerMandate(id), "NACH Mandate registered");
+    }
+
+    @PostMapping("/applications/{id}/emi/simulate-collection")
+    public ApiResponse<LoanTransaction> simulateCollection(@PathVariable Long id) {
+        return ok(service.simulateEmiCollection(id), "EMI collected via NACH simulation");
+    }
+
+    @PostMapping("/applications/{id}/prepayment")
+    public ApiResponse<LoanTransaction> prepayment(@PathVariable Long id, @Valid @RequestBody PrepaymentRequest req) {
+        return ok(service.processPartPrepayment(id, req), "Part-prepayment processed");
+    }
+
+    @PostMapping("/applications/{id}/foreclose")
+    public ApiResponse<LoanTransaction> foreclose(@PathVariable Long id) {
+        return ok(service.forecloseLoan(id), "Loan foreclosed successfully");
+    }
+
+    @GetMapping("/applications/{id}/noc")
+    public ApiResponse<Map<String, Object>> getNoc(@PathVariable Long id) {
+        return ok(service.generateNoc(id), "NOC details");
+    }
+
+    @GetMapping("/applications/{id}/emi-schedule")
+    public ApiResponse<Map<String, Object>> getEmiSchedule(@PathVariable Long id) {
+        return ok(service.getEmiSchedule(id), "EMI schedule details");
+    }
+
+    @GetMapping("/applications/{id}/emi-payments")
+    public ApiResponse<List<Map<String, Object>>> getTransactions(@PathVariable Long id) {
+        return ok(service.getTransactions(id), "Payment transaction history");
     }
 
     private <T> ApiResponse<T> ok(T data, String message) {

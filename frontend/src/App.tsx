@@ -13,6 +13,7 @@ import LoanApplicationForm from './components/Loan/LoanApplicationForm';
 import LoanList from './components/Loan/LoanList';
 import ApplicationStatus from './components/Loan/ApplicationStatus';
 import EMISchedule from './components/Loan/EMISchedule';
+import LoanDashboard from './components/Loan/LoanDashboard';
 
 // Admin Components
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -27,6 +28,14 @@ function App() {
         <Route path="/register" element={<Register />} />
 
         {/* Protected Routes - Customer */}
+        <Route
+          path="/loan-dashboard/:applicationId"
+          element={
+            <ProtectedRoute>
+              <LoanDashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/"
           element={
@@ -60,7 +69,7 @@ function App() {
           }
         />
         <Route
-          path="/application/:applicationId"
+          path="/application/:applicationId/:stageIndex?"
           element={
             <ProtectedRoute>
               <ApplicationStatus />

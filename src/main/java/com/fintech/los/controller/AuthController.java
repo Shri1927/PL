@@ -15,16 +15,22 @@ import java.time.Instant;
 public class AuthController {
     private final AuthService authService;
 
-    @PostMapping("/register")
-    public ApiResponse<Void> register(@Valid @RequestBody RegisterRequest request) {
-        authService.register(request);
-        return ApiResponse.<Void>builder().timestamp(Instant.now()).success(true).message("Registered. OTP sent.").build();
+    @PostMapping("/send-otp")
+    public ApiResponse<Void> sendOtp(@Valid @RequestBody SendOtpRequest request) {
+        authService.sendOtp(request);
+        return ApiResponse.<Void>builder().timestamp(Instant.now()).success(true).message("OTP sent").build();
     }
 
     @PostMapping("/verify-otp")
-    public ApiResponse<AuthResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
-        return ApiResponse.<AuthResponse>builder().timestamp(Instant.now()).success(true).message("OTP verified")
+    public ApiResponse<OtpVerifyResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
+        return ApiResponse.<OtpVerifyResponse>builder().timestamp(Instant.now()).success(true).message("OTP verified")
                 .data(authService.verifyOtp(request)).build();
+    }
+
+    @PostMapping("/register-profile")
+    public ApiResponse<AuthResponse> registerProfile(@Valid @RequestBody RegisterProfileRequest request) {
+        return ApiResponse.<AuthResponse>builder().timestamp(Instant.now()).success(true).message("Profile registered")
+                .data(authService.registerProfile(request)).build();
     }
 
     @PostMapping("/login")

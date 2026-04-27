@@ -19,7 +19,7 @@ const EMISchedule = () => {
   const fetchEmiSchedule = async () => {
     try {
       const response = await api.get(`/workflow/applications/${applicationId}/emi-schedule`);
-      setEmiSchedule(response.data);
+      setEmiSchedule(response.data.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load EMI schedule');
     } finally {
@@ -30,7 +30,7 @@ const EMISchedule = () => {
   const fetchTransactions = async () => {
     try {
       const response = await api.get(`/workflow/applications/${applicationId}/emi-payments`);
-      setTransactions(response.data.content || response.data);
+      setTransactions(response.data.data?.content || response.data.data || []);
     } catch (err: any) {
       console.error('Failed to load transactions:', err);
     }
@@ -231,7 +231,7 @@ const EMISchedule = () => {
                     transactions.map((transaction: any) => (
                       <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 font-mono text-sm text-gray-800">
-                          {transaction.id.slice(0, 8)}...
+                          {String(transaction.id).slice(0, 8)}...
                         </td>
                         <td className="py-3 px-4 text-gray-800">#{transaction.installmentNumber}</td>
                         <td className="py-3 px-4 text-gray-800 font-semibold">

@@ -36,22 +36,8 @@ public class AuthService {
     private final JwtService jwtService;
     private final StringRedisTemplate redisTemplate;
 
-    public void register(RegisterRequest request) {
+    public void sendOtp(SendOtpRequest request) {
         enforceOtpSendRateLimit(request.getMobile());
-        if (userRepository.findByMobile(request.getMobile()).isPresent()) {
-            throw new BusinessException("Mobile already registered");
-        }
-        User user = new User();
-        user.setCustomerId("CIF" + (100000 + new Random().nextInt(900000)));
-        user.setMobile(request.getMobile());
-        user.setEmail(request.getEmail());
-        user.setFullName(request.getFullName());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setRole(UserRole.CUSTOMER);
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
         String otp = String.format("%06d", new Random().nextInt(1_000_000));
         redisTemplate.opsForValue().set("otp:" + request.getMobile(), otp, 5, TimeUnit.MINUTES);
         log.info("\n===== OTP for mobile {} : {} =====", request.getMobile(), otp);
@@ -59,7 +45,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse verifyOtp(OtpVerifyRequest request) {
+    public OtpVerifyResponse verifyOtp(OtpVerifyRequest request) {
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey(request.getMobile())))) {
             throw new BusinessException("OTP temporarily locked. Try again later");
         }
@@ -76,7 +62,47 @@ public class AuthService {
         }
         redisTemplate.delete(key);
         redisTemplate.delete(verifyAttemptKey(request.getMobile()));
-        User user = userRepository.findByMobile(request.getMobile()).orElseThrow(() -> new BusinessException("User not found"));
+        
+        redisTemplate.opsForValue().set("otp_verified:" + request.getMobile(), "true", 15, TimeUnit.MINUTES);
+
+        boolean isExistingUser = userRepository.findByMobile(request.getMobile()).isPresent();
+        OtpVerifyResponse response = new OtpVerifyResponse();
+        response.setValid(true);
+        response.setExistingUser(isExistingUser);
+        
+        if (isExistingUser) {
+            User user = userRepository.findByMobile(request.getMobile()).get();
+            response.setAuthResponse(buildTokens(user));
+        }
+        
+        return response;
+    }
+
+    @Transactional
+    public AuthResponse registerProfile(RegisterProfileRequest request) {
+        if (!"true".equals(redisTemplate.opsForValue().get("otp_verified:" + request.getMobile()))) {
+            throw new BusinessException("OTP not verified or verification expired");
+        }
+        if (userRepository.findByMobile(request.getMobile()).isPresent()) {
+            throw new BusinessException("Mobile already registered");
+        }
+        
+        User user = new User();
+        user.setCustomerId("CIF" + (100000 + new Random().nextInt(900000)));
+        user.setMobile(request.getMobile());
+        user.setEmail(request.getEmail());
+        user.setFullName(request.getFullName());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole(UserRole.CUSTOMER);
+        user.setCity(request.getCity());
+        user.setDob(request.getDob());
+        user.setEmploymentType(request.getEmploymentType());
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        redisTemplate.delete("otp_verified:" + request.getMobile());
+
         return buildTokens(user);
     }
 
@@ -126,6 +152,7 @@ public class AuthService {
         response.setRefreshToken(refresh);
         response.setRole(user.getRole().name());
         response.setUserId(user.getId());
+        response.setCustomerId(user.getCustomerId());
         return response;
     }
 

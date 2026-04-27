@@ -34,6 +34,46 @@ public final class LoanWorkflowDtos {
     }
 
     @Data
+    public static class UpdateApplicationRequest {
+        private String loanPurpose;
+        private BigDecimal requestedAmount;
+        private Integer tenureMonths;
+        
+        // Personal Details
+        private String fatherName;
+        private String motherName;
+        private String gender;
+        private String maritalStatus;
+        private Integer dependents;
+        private String currentAddress;
+        private String permanentAddress;
+        private String residentialStability;
+
+        // Employment Details
+        private String companyName;
+        private String employeeId;
+        private String designation;
+        private Integer currentExperienceMonths;
+        private Integer totalExperienceMonths;
+        private String officeAddress;
+        private String officialEmail;
+
+        // Financial Details
+        private BigDecimal grossMonthlyIncome;
+        private BigDecimal netTakeHomeSalary;
+        private BigDecimal otherIncome;
+        private BigDecimal existingEmi;
+        private Integer existingLoansCount;
+        private BigDecimal creditCardOutstanding;
+
+        // Bank Details
+        private String bankName;
+        private String bankAccountNumber;
+        private String bankAccountType;
+        private String bankIfsc;
+    }
+
+    @Data
     public static class KycRequest {
         @NotBlank
         @Pattern(regexp = "^[A-Z]{5}[0-9]{4}[A-Z]{1}$")
@@ -95,5 +135,20 @@ public final class LoanWorkflowDtos {
         @NotBlank
         private String status; // VERIFIED or FAILED
         private String remarks;
+    }
+
+    @Data
+    public static class PrepaymentRequest {
+        @NotNull
+        @Positive
+        private BigDecimal amount;
+        @NotBlank
+        private String prepaymentType; // REDUCE_EMI, REDUCE_TENURE
+    }
+
+    @Data
+    public static class ForeclosureRequest {
+        @NotBlank
+        private String reason;
     }
 }

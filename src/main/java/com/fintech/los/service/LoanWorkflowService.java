@@ -36,9 +36,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LoanWorkflowService {
     private final LoanApplicationRepository loanApplicationRepository;
     private final KycDetailsRepository kycDetailsRepository;
@@ -68,6 +72,71 @@ public class LoanWorkflowService {
         a.setUpdatedAt(LocalDateTime.now());
         LoanApplication saved = loanApplicationRepository.save(a);
         eventPublisher.publish("APPLICATION_CREATED", saved.getId(), saved.getApplicationRef());
+        return saved;
+    }
+
+    @Transactional
+    public LoanApplication updateApplicationDraft(Long applicationId, UpdateApplicationRequest req) {
+        LoanApplication app = getApplication(applicationId);
+        if (app.getStatus() != ApplicationStatus.DRAFT) {
+            throw new BusinessException("Only DRAFT applications can be updated");
+        }
+
+        if (req.getLoanPurpose() != null) app.setLoanPurpose(req.getLoanPurpose());
+        if (req.getRequestedAmount() != null) app.setRequestedAmount(req.getRequestedAmount());
+        if (req.getTenureMonths() != null) app.setTenureMonths(req.getTenureMonths());
+        
+        if (req.getFatherName() != null) app.setFatherName(req.getFatherName());
+        if (req.getMotherName() != null) app.setMotherName(req.getMotherName());
+        if (req.getGender() != null) app.setGender(req.getGender());
+        if (req.getMaritalStatus() != null) app.setMaritalStatus(req.getMaritalStatus());
+        if (req.getDependents() != null) app.setDependents(req.getDependents());
+        if (req.getCurrentAddress() != null) app.setCurrentAddress(req.getCurrentAddress());
+        if (req.getPermanentAddress() != null) app.setPermanentAddress(req.getPermanentAddress());
+        if (req.getResidentialStability() != null) app.setResidentialStability(req.getResidentialStability());
+
+        if (req.getCompanyName() != null) app.setCompanyName(req.getCompanyName());
+        if (req.getEmployeeId() != null) app.setEmployeeId(req.getEmployeeId());
+        if (req.getDesignation() != null) app.setDesignation(req.getDesignation());
+        if (req.getCurrentExperienceMonths() != null) app.setCurrentExperienceMonths(req.getCurrentExperienceMonths());
+        if (req.getTotalExperienceMonths() != null) app.setTotalExperienceMonths(req.getTotalExperienceMonths());
+        if (req.getOfficeAddress() != null) app.setOfficeAddress(req.getOfficeAddress());
+        if (req.getOfficialEmail() != null) app.setOfficialEmail(req.getOfficialEmail());
+
+        if (req.getGrossMonthlyIncome() != null) app.setGrossMonthlyIncome(req.getGrossMonthlyIncome());
+        if (req.getNetTakeHomeSalary() != null) {
+            app.setNetTakeHomeSalary(req.getNetTakeHomeSalary());
+            app.setMonthlyIncome(req.getNetTakeHomeSalary());
+        }
+        if (req.getOtherIncome() != null) app.setOtherIncome(req.getOtherIncome());
+        if (req.getExistingEmi() != null) app.setExistingEmi(req.getExistingEmi());
+        if (req.getExistingLoansCount() != null) app.setExistingLoansCount(req.getExistingLoansCount());
+        if (req.getCreditCardOutstanding() != null) app.setCreditCardOutstanding(req.getCreditCardOutstanding());
+
+        if (req.getBankName() != null) app.setBankName(req.getBankName());
+        if (req.getBankAccountNumber() != null) app.setBankAccountNumber(req.getBankAccountNumber());
+        if (req.getBankAccountType() != null) app.setBankAccountType(req.getBankAccountType());
+        if (req.getBankIfsc() != null) app.setBankIfsc(req.getBankIfsc());
+
+        app.setDtiRatio(calcDti(app.getExistingEmi(), app.getRequestedAmount(), app.getTenureMonths(), app.getMonthlyIncome()));
+        app.setUpdatedAt(LocalDateTime.now());
+        
+        return loanApplicationRepository.save(app);
+    }
+
+    @Transactional
+    public LoanApplication submitApplication(Long applicationId) {
+        LoanApplication app = getApplication(applicationId);
+        if (app.getStatus() != ApplicationStatus.DRAFT) {
+            throw new BusinessException("Only DRAFT applications can be submitted");
+        }
+        
+        app.setStatus(ApplicationStatus.SUBMITTED);
+        app.setSubmittedAt(LocalDateTime.now());
+        app.setUpdatedAt(LocalDateTime.now());
+        
+        LoanApplication saved = loanApplicationRepository.save(app);
+        eventPublisher.publish("APPLICATION_SUBMITTED", saved.getId(), saved.getApplicationRef());
         return saved;
     }
 
@@ -288,12 +357,183 @@ public class LoanWorkflowService {
 
         app.setStatus(ApplicationStatus.DISBURSED);
         app.setStage("STAGE_09");
+        app.setOutstandingPrincipal(app.getSanctionedAmount());
+        app.setMandateStatus("PENDING");
+        app.setNextEmiDueDate(LocalDate.now().plusMonths(1));
         app.setUpdatedAt(LocalDateTime.now());
         loanApplicationRepository.save(app);
         buildSchedule(app);
         Disbursement saved = disbursementRepository.save(d);
         eventPublisher.publish("DISBURSEMENT_SUCCESS", applicationId, saved.getUtr());
         return saved;
+    }
+
+    @Transactional
+    public LoanApplication registerMandate(Long applicationId) {
+        LoanApplication app = getApplication(applicationId);
+        if (app.getStatus() != ApplicationStatus.DISBURSED && app.getStatus() != ApplicationStatus.ACTIVE) {
+            throw new BusinessException("Mandate registration requires disbursed loan");
+        }
+        app.setMandateStatus("REGISTERED");
+        app.setStatus(ApplicationStatus.ACTIVE);
+        app.setStage("STAGE_10");
+        app.setUpdatedAt(LocalDateTime.now());
+        LoanApplication saved = loanApplicationRepository.save(app);
+        eventPublisher.publish("MANDATE_REGISTERED", applicationId, "SUCCESS");
+        return saved;
+    }
+
+    @Transactional
+    public LoanTransaction simulateEmiCollection(Long applicationId) {
+        LoanApplication app = getApplication(applicationId);
+        if (app.getMandateStatus() == null || !app.getMandateStatus().equals("REGISTERED")) {
+            throw new BusinessException("NACH Mandate not registered");
+        }
+
+        List<EmiSchedule> items = emiScheduleRepository.findByApplicationIdOrderByInstallmentNo(applicationId);
+        EmiSchedule nextEmi = items.stream().filter(i -> !i.isPaid()).findFirst()
+                .orElseThrow(() -> new BusinessException("No pending EMIs found"));
+
+        // Simulate random bounce (5% chance)
+        if (new Random().nextInt(100) < 5) {
+            eventPublisher.publish("EMI_BOUNCED", applicationId, "Insufficient funds");
+            throw new BusinessException("EMI collection failed: Insufficient funds");
+        }
+
+        EmiPaymentRequest req = new EmiPaymentRequest();
+        req.setAmount(nextEmi.getEmiAmount());
+        req.setGatewayRef("NACH-" + System.currentTimeMillis());
+        return payEmi(applicationId, req);
+    }
+
+    @Transactional
+    public LoanTransaction processPartPrepayment(Long applicationId, PrepaymentRequest req) {
+        LoanApplication app = getApplication(applicationId);
+        if (app.getStatus() != ApplicationStatus.ACTIVE) {
+            throw new BusinessException("Prepayment only allowed for ACTIVE loans");
+        }
+
+        LoanTransaction tx = new LoanTransaction();
+        tx.setApplicationId(applicationId);
+        tx.setTransactionType(TransactionType.PREPAYMENT);
+        tx.setAmount(req.getAmount());
+        tx.setStatus("SUCCESS");
+        tx.setGatewayRef("PREPAY-" + System.currentTimeMillis());
+        tx.setEventTime(LocalDateTime.now());
+        loanTransactionRepository.save(tx);
+
+        // Update outstanding principal
+        BigDecimal currentPrincipal = app.getOutstandingPrincipal() != null ? app.getOutstandingPrincipal() : app.getSanctionedAmount();
+        app.setOutstandingPrincipal(currentPrincipal.subtract(req.getAmount()));
+        if (app.getOutstandingPrincipal().compareTo(BigDecimal.ZERO) <= 0) {
+            app.setOutstandingPrincipal(BigDecimal.ZERO);
+            app.setStatus(ApplicationStatus.CLOSED);
+        }
+
+        // Re-calculate schedule if loan is still active
+        if (app.getStatus() == ApplicationStatus.ACTIVE) {
+            // Delete future unpaid schedules
+            List<EmiSchedule> unpaid = emiScheduleRepository.findByApplicationIdOrderByInstallmentNo(applicationId)
+                    .stream().filter(i -> !i.isPaid()).collect(Collectors.toList());
+            emiScheduleRepository.deleteAll(unpaid);
+            
+            // Re-build based on new principal
+            rebuildScheduleAfterPrepayment(app, req.getPrepaymentType());
+        }
+
+        app.setUpdatedAt(LocalDateTime.now());
+        loanApplicationRepository.save(app);
+        eventPublisher.publish("PREPAYMENT_SUCCESS", applicationId, req.getAmount().toPlainString());
+        return tx;
+    }
+
+    @Transactional
+    public LoanTransaction forecloseLoan(Long applicationId) {
+        LoanApplication app = getApplication(applicationId);
+        BigDecimal foreclosureAmount = app.getOutstandingPrincipal(); // Simple logic: just outstanding principal
+        
+        LoanTransaction tx = new LoanTransaction();
+        tx.setApplicationId(applicationId);
+        tx.setTransactionType(TransactionType.PREPAYMENT);
+        tx.setAmount(foreclosureAmount);
+        tx.setStatus("SUCCESS");
+        tx.setGatewayRef("FORECLOSE-" + System.currentTimeMillis());
+        tx.setEventTime(LocalDateTime.now());
+        loanTransactionRepository.save(tx);
+
+        app.setOutstandingPrincipal(BigDecimal.ZERO);
+        app.setStatus(ApplicationStatus.CLOSED);
+        app.setStage("STAGE_10");
+        app.setUpdatedAt(LocalDateTime.now());
+        loanApplicationRepository.save(app);
+
+        // Mark all EMIs as paid/closed
+        List<EmiSchedule> items = emiScheduleRepository.findByApplicationIdOrderByInstallmentNo(applicationId);
+        items.forEach(i -> {
+            if (!i.isPaid()) {
+                i.setPaid(true);
+                i.setPaidAt(LocalDateTime.now());
+            }
+        });
+        emiScheduleRepository.saveAll(items);
+
+        eventPublisher.publish("LOAN_FORECLOSED", applicationId, foreclosureAmount.toPlainString());
+        return tx;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> generateNoc(Long applicationId) {
+        LoanApplication app = getApplication(applicationId);
+        if (app.getStatus() != ApplicationStatus.CLOSED) {
+            throw new BusinessException("NOC can only be generated for CLOSED loans");
+        }
+        Map<String, Object> noc = new java.util.HashMap<>();
+        noc.put("loanRef", app.getApplicationRef());
+        noc.put("customerName", app.getFatherName()); // placeholder
+        noc.put("closureDate", app.getUpdatedAt());
+        noc.put("nocStatus", "ISSUED");
+        noc.put("nocUrl", "/noc/" + applicationId + ".pdf");
+        return noc;
+    }
+
+    private void rebuildScheduleAfterPrepayment(LoanApplication app, String type) {
+        // Simple logic for rebuilding
+        // If REDUCE_TENURE, keep EMI same, reduce months
+        // If REDUCE_EMI, keep tenure same, reduce EMI
+        // For simplicity in this demo, we'll just rebuild with remaining tenure and new principal
+        List<EmiSchedule> paid = emiScheduleRepository.findByApplicationIdOrderByInstallmentNo(app.getId())
+                .stream().filter(EmiSchedule::isPaid).collect(Collectors.toList());
+        int paidCount = paid.size();
+        int remainingTenure = app.getTenureMonths() - paidCount;
+        
+        if (remainingTenure <= 0) return;
+
+        BigDecimal principal = app.getOutstandingPrincipal() != null ? app.getOutstandingPrincipal() : app.getSanctionedAmount();
+        BigDecimal monthlyRate = app.getAnnualInterestRate().divide(new BigDecimal("1200"), 10, RoundingMode.HALF_UP);
+        
+        int n = type.equals("REDUCE_TENURE") ? remainingTenure : remainingTenure; // Placeholder logic
+        
+        BigDecimal onePlusRPowerN = monthlyRate.add(BigDecimal.ONE).pow(n);
+        BigDecimal emi = principal.multiply(monthlyRate).multiply(onePlusRPowerN)
+                .divide(onePlusRPowerN.subtract(BigDecimal.ONE), 2, RoundingMode.HALF_UP);
+
+        BigDecimal balance = principal;
+        List<EmiSchedule> newSchedules = new ArrayList<>();
+        for (int i = 1; i <= n; i++) {
+            BigDecimal interest = balance.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal principalComp = emi.subtract(interest).setScale(2, RoundingMode.HALF_UP);
+            balance = balance.subtract(principalComp).max(BigDecimal.ZERO);
+            EmiSchedule row = new EmiSchedule();
+            row.setApplicationId(app.getId());
+            row.setInstallmentNo(paidCount + i);
+            row.setDueDate(LocalDate.now().plusMonths(i));
+            row.setInterestComponent(interest);
+            row.setPrincipalComponent(principalComp);
+            row.setEmiAmount(emi);
+            row.setPaid(false);
+            newSchedules.add(row);
+        }
+        emiScheduleRepository.saveAll(newSchedules);
     }
 
     @Transactional
@@ -304,6 +544,15 @@ public class LoanWorkflowService {
         }
         app.setStatus(ApplicationStatus.ACTIVE);
         app.setStage("STAGE_10");
+        
+        List<EmiSchedule> items = emiScheduleRepository.findByApplicationIdOrderByInstallmentNo(applicationId);
+        
+        // Update outstanding principal on EMI payment
+        BigDecimal principalPaid = items.stream().filter(i -> !i.isPaid()).findFirst()
+                .map(EmiSchedule::getPrincipalComponent).orElse(BigDecimal.ZERO);
+        BigDecimal currentPrincipal = app.getOutstandingPrincipal() != null ? app.getOutstandingPrincipal() : app.getSanctionedAmount();
+        app.setOutstandingPrincipal(currentPrincipal.subtract(principalPaid).max(BigDecimal.ZERO));
+        
         app.setUpdatedAt(LocalDateTime.now());
         loanApplicationRepository.save(app);
 
@@ -315,7 +564,6 @@ public class LoanWorkflowService {
         tx.setGatewayRef(req.getGatewayRef());
         tx.setEventTime(LocalDateTime.now());
 
-        List<EmiSchedule> items = emiScheduleRepository.findByApplicationIdOrderByInstallmentNo(applicationId);
         items.stream().filter(i -> !i.isPaid()).findFirst().ifPresent(i -> {
             i.setPaid(true);
             i.setPaidAt(LocalDateTime.now());
@@ -457,6 +705,69 @@ public class LoanWorkflowService {
         details.put("agreement", getAgreement(applicationId));
         details.put("disbursement", getDisbursement(applicationId));
         return details;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getEmiSchedule(Long applicationId) {
+        try {
+            LoanApplication app = getApplication(applicationId);
+            List<EmiSchedule> items = emiScheduleRepository.findByApplicationIdOrderByInstallmentNo(applicationId);
+            log.info("Found {} EMI schedule items for application {}", items.size(), applicationId);
+
+            BigDecimal totalOutstanding = app.getOutstandingPrincipal() != null ? app.getOutstandingPrincipal() : 
+                    items.stream()
+                    .filter(i -> !i.isPaid())
+                    .map(i -> i.getEmiAmount() != null ? i.getEmiAmount() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            long paidEmis = items.stream().filter(EmiSchedule::isPaid).count();
+            BigDecimal monthlyEmi = items.isEmpty() ? BigDecimal.ZERO : items.get(0).getEmiAmount();
+
+            List<Map<String, Object>> installments = items.stream().map(i -> {
+                Map<String, Object> m = new java.util.HashMap<>();
+                m.put("installmentNumber", i.getInstallmentNo());
+                m.put("dueDate", i.getDueDate());
+                m.put("principal", i.getPrincipalComponent());
+                m.put("interest", i.getInterestComponent());
+                m.put("totalEmi", i.getEmiAmount());
+                m.put("outstandingBalance", i.getEmiAmount());
+                m.put("status", i.isPaid() ? "PAID" : "DUE");
+                return m;
+            }).collect(Collectors.toList());
+
+            Map<String, Object> res = new java.util.HashMap<>();
+            res.put("totalOutstanding", totalOutstanding);
+            res.put("totalEmis", items.size());
+            res.put("paidEmis", paidEmis);
+            res.put("monthlyEmi", monthlyEmi);
+            res.put("installments", installments);
+            return res;
+        } catch (Exception e) {
+            log.error("Error fetching EMI schedule for {}: {}", applicationId, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getTransactions(Long applicationId) {
+        try {
+            log.info("Fetching transactions for application {}", applicationId);
+            List<LoanTransaction> txs = loanTransactionRepository.findByApplicationIdOrderByEventTimeDesc(applicationId);
+            return txs.stream().map(t -> {
+                Map<String, Object> m = new java.util.HashMap<>();
+                m.put("id", String.valueOf(t.getId()));
+                m.put("transactionType", t.getTransactionType());
+                m.put("amount", t.getAmount());
+                m.put("status", t.getStatus());
+                m.put("gatewayRef", t.getGatewayRef());
+                m.put("paymentDate", t.getEventTime());
+                m.put("installmentNumber", 0); // Default or calculated
+                return m;
+            }).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error fetching transactions for {}: {}", applicationId, e.getMessage(), e);
+            throw e;
+        }
     }
 
     private LoanApplication getApplication(Long applicationId) {

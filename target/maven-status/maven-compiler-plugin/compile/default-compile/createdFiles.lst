@@ -1,4 +1,6 @@
 com\fintech\los\common\dto\LoanWorkflowDtos$KycRequest.class
+com\fintech\los\common\dto\AuthDtos$OtpVerifyResponse.class
+com\fintech\los\integration\cloudinary\CloudinaryConfig.class
 com\fintech\los\common\dto\LoanWorkflowDtos$CreditDecisionRequest.class
 com\fintech\los\common\dto\LoanWorkflowDtos$CreateApplicationRequest.class
 com\fintech\los\common\dto\AuthDtos.class
@@ -23,18 +25,22 @@ com\fintech\los\common\dto\LoanWorkflowDtos$EmiPaymentRequest.class
 com\fintech\los\PersonalLoanLosApplication.class
 com\fintech\los\service\LoanWorkflowService.class
 com\fintech\los\domain\loan\LoanEnums$Decision.class
+com\fintech\los\common\dto\LoanWorkflowDtos$UpdateApplicationRequest.class
 com\fintech\los\domain\disbursement\repository\DisbursementRepository.class
 com\fintech\los\common\audit\AuditLoggingFilter.class
 com\fintech\los\domain\document\LoanDocument.class
 com\fintech\los\domain\underwriter\UnderwriterReview.class
+com\fintech\los\common\dto\LoanWorkflowDtos$PrepaymentRequest.class
 com\fintech\los\domain\lms\repository\EmiScheduleRepository.class
 com\fintech\los\domain\loan\LoanEnums$DisbursementStatus.class
 com\fintech\los\domain\auth\RefreshToken.class
 com\fintech\los\common\dto\LoanWorkflowDtos$OfferAcceptRequest.class
 com\fintech\los\domain\agreement\repository\LoanAgreementRepository.class
 com\fintech\los\common\dto\LoanWorkflowDtos.class
+com\fintech\los\common\dto\AuthDtos$RegisterProfileRequest.class
 com\fintech\los\common\response\ApiResponse$ApiResponseBuilder.class
 com\fintech\los\domain\loan\LoanEnums$ApplicationStatus.class
+com\fintech\los\common\dto\AuthDtos$SendOtpRequest.class
 com\fintech\los\domain\kyc\KycDetails.class
 com\fintech\los\domain\credit\CreditAssessment.class
 com\fintech\los\common\dto\AuthDtos$OtpVerifyRequest.class
@@ -65,4 +71,4 @@ com\fintech\los\common\dto\AuthDtos$TokenRefreshRequest.class
 com\fintech\los\common\dto\LoanWorkflowDtos$DocumentVerifyRequest.class
 com\fintech\los\domain\offer\repository\LoanOfferRepository.class
 com\fintech\los\controller\AdminUnderwriterController.class
-com\fintech\los\common\dto\AuthDtos$RegisterRequest.class
+com\fintech\los\common\dto\LoanWorkflowDtos$ForeclosureRequest.class
