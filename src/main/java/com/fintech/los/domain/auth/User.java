@@ -26,6 +26,7 @@ public class User {
     private UserRole role;
     @Enumerated(EnumType.STRING)
     private EmploymentType employmentType;
+    private java.math.BigDecimal approvalLimit;
     private String city;
     private LocalDate dob;
     private LocalDateTime createdAt;

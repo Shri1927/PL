@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
-import { Menu, X, FileText, Settings, LogOut, User, LayoutDashboard, Moon, Sun } from 'lucide-react';
+import { Menu, X, Settings, LogOut, User, LayoutDashboard, Moon, Sun } from 'lucide-react';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -42,13 +42,6 @@ const Navbar = () => {
                   <LayoutDashboard size={18} />
                   <span className="font-medium">Dashboard</span>
                 </Link>
-                <Link
-                  to="/applications"
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
-                >
-                  <FileText size={18} />
-                  <span className="font-medium">Applications</span>
-                </Link>
                 {user?.role === 'ADMIN' && (
                   <Link
                     to="/admin"
@@ -56,6 +49,24 @@ const Navbar = () => {
                   >
                     <Settings size={18} />
                     <span className="font-medium">Admin</span>
+                  </Link>
+                )}
+                {(user?.role === 'LOAN_OFFICER' || user?.role === 'RM') && (
+                  <Link
+                    to="/maker"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                  >
+                    <LayoutDashboard size={18} />
+                    <span className="font-medium">Maker Queue</span>
+                  </Link>
+                )}
+                {['BRANCH_MANAGER', 'REGIONAL_CREDIT_MGR', 'ZONAL_HEAD', 'CREDIT_COMMITTEE', 'BOD'].includes(user?.role || '') && (
+                  <Link
+                    to="/checker"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
+                  >
+                    <LayoutDashboard size={18} />
+                    <span className="font-medium">Checker Queue</span>
                   </Link>
                 )}
 
@@ -130,14 +141,6 @@ const Navbar = () => {
                 >
                   <LayoutDashboard size={20} />
                   <span className="font-medium">Dashboard</span>
-                </Link>
-                <Link
-                  to="/applications"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition-all duration-300"
-                >
-                  <FileText size={20} />
-                  <span className="font-medium">Applications</span>
                 </Link>
                 {user?.role === 'ADMIN' && (
                   <Link

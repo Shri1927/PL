@@ -17,7 +17,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusiness(BusinessException ex) {
-        return ResponseEntity.badRequest().body(
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        if (ex.getMessage().contains("credentials") || ex.getMessage().contains("not found") || ex.getMessage().contains("Unauthorized")) {
+            status = HttpStatus.UNAUTHORIZED;
+        }
+        
+        return ResponseEntity.status(status).body(
                 ApiResponse.<Void>builder()
                         .timestamp(Instant.now())
                         .success(false)

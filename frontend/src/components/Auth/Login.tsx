@@ -27,9 +27,19 @@ const Login = () => {
       login(data.accessToken, {
         userId: data.userId,
         role: data.role,
-        name: `User ${data.userId}`,
+        name: data.fullName,
       });
-      navigate('/dashboard');
+      
+      // Role-based redirection
+      if (data.role === 'ADMIN') {
+        navigate('/admin');
+      } else if (data.role === 'LOAN_OFFICER' || data.role === 'RM') {
+        navigate('/maker');
+      } else if (['BRANCH_MANAGER', 'REGIONAL_CREDIT_MGR', 'ZONAL_HEAD', 'CREDIT_COMMITTEE', 'BOD'].includes(data.role)) {
+        navigate('/checker');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {

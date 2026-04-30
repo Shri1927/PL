@@ -1,6 +1,7 @@
 package com.fintech.los.domain.loan;
 
 import com.fintech.los.domain.loan.LoanEnums.ApplicationStatus;
+import com.fintech.los.domain.loan.LoanEnums.Tier;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,6 +22,11 @@ public class LoanApplication {
     private Long userId;
     @Enumerated(EnumType.STRING)
     private ApplicationStatus status;
+    @Enumerated(EnumType.STRING)
+    private Tier tier;
+    private Long createdBy;
+    private Long currentAssignedTo;
+    private LocalDateTime slaDeadline;
     private String loanPurpose;
     private BigDecimal requestedAmount;
     private BigDecimal sanctionedAmount;
@@ -30,6 +36,7 @@ public class LoanApplication {
     private BigDecimal existingEmi;
     private BigDecimal dtiRatio;
     private String stage;
+    private Integer allowedStage; // New field to control workflow permission
     
     // Personal Details
     private String fatherName;

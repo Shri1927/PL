@@ -27,7 +27,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**", "/actuator/**").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "UNDERWRITER")
+                        .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "UNDERWRITER", "LOAN_OFFICER", "RM", "CREDIT_ANALYST")
                         .anyRequest().authenticated())
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .formLogin(form -> form.disable())

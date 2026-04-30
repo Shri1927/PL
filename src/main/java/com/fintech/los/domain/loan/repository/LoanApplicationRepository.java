@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface LoanApplicationRepository extends JpaRepository<LoanApplication, Long> {
     Optional<LoanApplication> findByApplicationRef(String applicationRef);
@@ -14,4 +15,6 @@ public interface LoanApplicationRepository extends JpaRepository<LoanApplication
     Page<LoanApplication> findByUserId(Long userId, Pageable pageable);
     long countByUserId(Long userId);
     long countByUserIdAndStatus(Long userId, ApplicationStatus status);
+    List<LoanApplication> findByCreatedBy(Long createdBy);
+    List<LoanApplication> findAllByStatus(ApplicationStatus status);
 }

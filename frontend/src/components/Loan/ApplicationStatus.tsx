@@ -5,6 +5,8 @@ import api from '../../api';
 // ── Stage label map ──
 const STAGE_LABELS: Record<string, string> = {
   DRAFT: 'Application Initiated',
+  SUBMITTED: 'Pending Maker Review',
+  MAKER_CHECKED: 'Maker Approved',
   KYC_VERIFIED: 'KYC Verified',
   DOCS_COMPLETE: 'Documents Verified',
   APPROVED: 'Credit Approved',
@@ -18,6 +20,8 @@ const STAGE_LABELS: Record<string, string> = {
 
 const STATUS_FLOW = [
   'DRAFT',
+  'SUBMITTED',
+  'MAKER_CHECKED',
   'KYC_VERIFIED',
   'DOCS_COMPLETE',
   'APPROVED',
@@ -136,7 +140,7 @@ const ApplicationStatus = () => {
   };
 
   const currentStepIndex = STATUS_FLOW.indexOf(application?.status || 'DRAFT');
-  const maxAccessibleStage = Math.min(currentStepIndex + 2, 8);
+  const maxAccessibleStage = application?.allowedStage || 1;
 
   useEffect(() => {
     // Redirect logic: If no stage specified, or if accessing a locked stage
@@ -643,24 +647,94 @@ const ApplicationStatus = () => {
               </div>
             </div>
             <div className="mt-8 pt-6 border-t flex justify-between items-center">
-              <p className="text-sm text-gray-500">Your application has been received. Please proceed to KYC verification.</p>
-              <button 
-                onClick={() => navigate(`/application/${applicationId}/2`)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-              >
-                Continue to KYC →
-              </button>
+              {maxAccessibleStage < 2 ? (
+                <p className="text-sm text-amber-600 font-semibold flex items-center gap-2">
+                  <span className="animate-pulse">⏳</span> Waiting for Maker to verify your application details...
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500">Your application has been received and approved for processing. Please proceed to the next step.</p>
+                  <button 
+                    onClick={() => navigate(`/application/${applicationId}/2`)}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                  >
+                    Continue →
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
 
         {/* ═══════════════════════════════════════════════
-            STAGE 02: KYC VERIFICATION
+            STAGE 02: PENDING MAKER REVIEW
         ═══════════════════════════════════════════════ */}
         {activeStage === 2 && (
+          <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
+            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">2</span>
+              Pending Maker Review
+            </h2>
+            <div className="bg-amber-50 border border-amber-200 p-6 rounded-xl">
+              <div className="flex items-center gap-4 text-amber-800">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-2xl animate-pulse">⏳</div>
+                <div>
+                  <p className="font-bold text-lg">Awaiting Authorization</p>
+                  <p className="text-sm opacity-90">Our Maker Officer is currently reviewing your loan application details. You will be notified once the application is approved for the next stage.</p>
+                </div>
+              </div>
+              {maxAccessibleStage >= 3 && (
+                <button 
+                  onClick={() => navigate(`/application/${applicationId}/3`)}
+                  className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-md"
+                >
+                  Proceed to Maker Approval Stage
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════
+            STAGE 03: MAKER APPROVED
+        ═══════════════════════════════════════════════ */}
+        {activeStage === 3 && (
+          <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
+            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">3</span>
+              Maker Approved
+            </h2>
+            <div className="bg-green-50 border border-green-200 p-6 rounded-xl">
+              <div className="flex items-center gap-4 text-green-800">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-2xl">✓</div>
+                <div>
+                  <p className="font-bold text-lg">Authorization Successful</p>
+                  <p className="text-sm opacity-90">Your application has been successfully authorized by the Maker Officer. You can now proceed with KYC and Document verification.</p>
+                </div>
+              </div>
+              {maxAccessibleStage >= 4 ? (
+                <button 
+                  onClick={() => navigate(`/application/${applicationId}/4`)}
+                  className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-md"
+                >
+                  Proceed to KYC Verification
+                </button>
+              ) : (
+                <p className="mt-4 text-sm text-amber-600 font-semibold italic">
+                  Waiting for Maker to grant permission for KYC stage...
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════
+            STAGE 04: KYC VERIFICATION
+        ═══════════════════════════════════════════════ */}
+        {activeStage === 4 && (
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">2</span>
+            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">4</span>
             KYC Verification
             {kycDetails && (
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
@@ -703,7 +777,7 @@ const ApplicationStatus = () => {
                 </div>
               )}
             </div>
-          ) : currentStatus === 'DRAFT' || currentStatus === 'SUBMITTED' ? (
+          ) : (currentStatus === 'MAKER_CHECKED' || currentStatus === 'SUBMITTED' || currentStatus === 'DRAFT') ? (
             <div className="space-y-6">
               <p className="text-sm text-gray-600">
                 Complete your Know Your Customer (KYC) verification. This involves verifying your identity against government databases.
@@ -737,7 +811,7 @@ const ApplicationStatus = () => {
                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                   {kycStep === 1 && (
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 3.2: PAN Verification</h3>
+                      <h3 className="font-semibold text-gray-800">Step 4.1: PAN Verification</h3>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Enter PAN Number</label>
                         <input
@@ -755,7 +829,7 @@ const ApplicationStatus = () => {
 
                   {kycStep === 2 && (
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 3.3: Aadhaar eKYC</h3>
+                      <h3 className="font-semibold text-gray-800">Step 4.2: Aadhaar eKYC</h3>
                       <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded text-sm inline-block mb-2">
                         ✓ PAN Verified Successfully
                       </div>
@@ -776,7 +850,7 @@ const ApplicationStatus = () => {
 
                   {kycStep === 3 && (
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 3.4: Enter Aadhaar OTP</h3>
+                      <h3 className="font-semibold text-gray-800">Step 4.3: Enter Aadhaar OTP</h3>
                       <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-2 rounded text-sm mb-4">
                         ℹ OTP sent to mobile linked with Aadhaar ending in {kycForm.aadhaarLast4}
                       </div>
@@ -796,7 +870,7 @@ const ApplicationStatus = () => {
 
                   {kycStep === 4 && (
                     <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 3.5 - 3.8: Processing Compliance Checks</h3>
+                      <h3 className="font-semibold text-gray-800">Step 4.4 - 4.8: Processing Compliance Checks</h3>
                       <div className="space-y-2">
                         <p className="text-sm text-gray-700 flex items-center gap-2"><span>⏳</span> Querying CKYC Registry...</p>
                         <p className="text-sm text-gray-700 flex items-center gap-2"><span>⏳</span> Cross-verifying address...</p>
@@ -830,25 +904,34 @@ const ApplicationStatus = () => {
             <p className="text-gray-500 text-sm">KYC not yet initiated</p>
           )}
           {kycDetails && (
-            <div className="mt-8 pt-6 border-t flex justify-end">
-              <button 
-                onClick={() => navigate(`/application/${applicationId}/3`)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-              >
-                Next: Document Upload →
-              </button>
+            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
+              {maxAccessibleStage >= 5 ? (
+                <>
+                  <p className="text-sm text-gray-500">KYC verified. Please proceed to document upload.</p>
+                  <button 
+                    onClick={() => navigate(`/application/${applicationId}/5`)}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                  >
+                    Next: Document Upload →
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-amber-600 font-semibold italic">
+                  Waiting for Maker to grant permission for Document Upload stage...
+                </p>
+              )}
             </div>
           )}
         </div>
         )}
 
         {/* ═══════════════════════════════════════════════
-            STAGE 03: DOCUMENT UPLOAD & VERIFICATION
+            STAGE 05: DOCUMENT UPLOAD & VERIFICATION
         ═══════════════════════════════════════════════ */}
-        {activeStage === 3 && (
+        {activeStage === 5 && (
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">3</span>
+            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">5</span>
             Document Upload & Verification
             {currentStatus !== 'DRAFT' && documents.length > 0 && documents.every((d: any) => d.verificationStatus === 'VERIFIED') && (
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
@@ -925,7 +1008,7 @@ const ApplicationStatus = () => {
           )}
 
           {/* Upload form & Checklist — available when KYC is verified or draft */}
-          {(currentStatus === 'DRAFT' || currentStatus === 'KYC_VERIFIED') && (
+          {(currentStatus === 'DRAFT' || currentStatus === 'KYC_VERIFIED' || currentStatus === 'MAKER_CHECKED') && (
             <div className="border-t pt-6 mt-4">
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-800 text-lg flex items-center gap-2">
@@ -1020,12 +1103,12 @@ const ApplicationStatus = () => {
         )}
 
         {/* ═══════════════════════════════════════════════
-            STAGE 04: CREDIT ASSESSMENT & UNDERWRITING
+            STAGE 06: CREDIT ASSESSMENT & UNDERWRITING
         ═══════════════════════════════════════════════ */}
-        {activeStage === 4 && (
+        {activeStage === 6 && (
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">4</span>
+            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">6</span>
             Credit Assessment & Underwriting
             {creditDetails && (
               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${creditDetails.finalDecision === 'APPROVED'
@@ -1081,7 +1164,7 @@ const ApplicationStatus = () => {
                 <p className="text-sm font-medium text-gray-800">{creditDetails.decisionReason}</p>
               </div>
             </div>
-          ) : (currentStatus === 'KYC_VERIFIED' || currentStatus === 'DOCS_COMPLETE') ? (
+          ) : (currentStatus === 'KYC_VERIFIED' || currentStatus === 'DOCS_COMPLETE' || currentStatus === 'MAKER_CHECKED') ? (
             <div>
               {/* Simulation Action Bar */}
               {simulatedCreditAction && (
@@ -1119,25 +1202,34 @@ const ApplicationStatus = () => {
             <p className="text-gray-500 text-sm">Application must complete KYC and Document Verification first.</p>
           )}
           {creditDetails && (
-            <div className="mt-8 pt-6 border-t flex justify-end">
-              <button 
-                onClick={() => navigate(`/application/${applicationId}/5`)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-              >
-                Next: View Loan Offer →
-              </button>
+            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
+              {maxAccessibleStage >= 7 ? (
+                <>
+                  <p className="text-sm text-gray-500">Credit assessment completed. View your offer.</p>
+                  <button 
+                    onClick={() => navigate(`/application/${applicationId}/7`)}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                  >
+                    Next: View Loan Offer →
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-amber-600 font-semibold italic">
+                  Waiting for Maker to grant permission for Loan Offer stage...
+                </p>
+              )}
             </div>
           )}
         </div>
         )}
 
         {/* ═══════════════════════════════════════════════
-            STAGE 05: LOAN OFFER GENERATION
+            STAGE 07: LOAN OFFER GENERATION
         ═══════════════════════════════════════════════ */}
-        {activeStage === 5 && (
+        {activeStage === 7 && (
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">5</span>
+            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">7</span>
             Loan Offer
             {offerDetails && (
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
@@ -1188,7 +1280,7 @@ const ApplicationStatus = () => {
                 </div>
               </div>
 
-              {/* Offer Configurator (Step 6.5) */}
+              {/* Offer Configurator (Step 7.5) */}
               {currentStatus === 'APPROVED' && !offerDetails.accepted && (
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-8">
                   <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -1484,25 +1576,34 @@ const ApplicationStatus = () => {
             </p>
           )}
           {offerDetails?.accepted && (
-            <div className="mt-8 pt-6 border-t flex justify-end">
-              <button 
-                onClick={() => navigate(`/application/${applicationId}/6`)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-              >
-                Next: Digital Agreement →
-              </button>
+            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
+              {maxAccessibleStage >= 8 ? (
+                <>
+                  <p className="text-sm text-gray-500">Offer accepted. Proceed to digital agreement.</p>
+                  <button 
+                    onClick={() => navigate(`/application/${applicationId}/8`)}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                  >
+                    Next: Digital Agreement →
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-amber-600 font-semibold italic">
+                  Waiting for Maker to grant permission for Digital Agreement stage...
+                </p>
+              )}
             </div>
           )}
         </div>
         )}
 
         {/* ═══════════════════════════════════════════════
-            STAGE 06: LEGAL AGREEMENT & SANCTION LETTER
+            STAGE 08: LEGAL AGREEMENT & SANCTION LETTER
         ═══════════════════════════════════════════════ */}
-        {activeStage === 6 && (
+        {activeStage === 8 && (
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">6</span>
+            <span className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">8</span>
             Legal Agreement & Execution
           </h2>
 
@@ -1695,28 +1796,37 @@ const ApplicationStatus = () => {
               </div>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm italic">This stage will activate once the loan offer is accepted in Stage 5.</p>
+            <p className="text-gray-500 text-sm italic">This stage will activate once the loan offer is accepted in Stage 7.</p>
           )}
           {(currentStatus === 'AGREEMENT_EXECUTED' || currentStatus === 'DISBURSED' || currentStatus === 'ACTIVE') && (
-            <div className="mt-8 pt-6 border-t flex justify-end">
-              <button 
-                onClick={() => navigate(`/application/${applicationId}/7`)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-              >
-                Next: Final Disbursement →
-              </button>
+            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
+              {maxAccessibleStage >= 9 ? (
+                <>
+                  <p className="text-sm text-gray-500">Agreement executed. Proceed to disbursement.</p>
+                  <button 
+                    onClick={() => navigate(`/application/${applicationId}/9`)}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                  >
+                    Next: Final Disbursement →
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-amber-600 font-semibold italic">
+                  Waiting for Maker to grant permission for Disbursement stage...
+                </p>
+              )}
             </div>
           )}
         </div>
         )}
 
         {/* ═══════════════════════════════════════════════
-            STAGE 07: LOAN DISBURSEMENT
+            STAGE 09: LOAN DISBURSEMENT
         ═══════════════════════════════════════════════ */}
-        {activeStage === 7 && (
+        {activeStage === 9 && (
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">7</span>
+            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">9</span>
             Loan Disbursement
             {disbursementDetails?.status === 'SUCCESS' && (
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
@@ -1881,26 +1991,35 @@ const ApplicationStatus = () => {
               )}
             </div>
           ) : (
-            <p className="text-gray-500 text-sm italic">This stage will activate once the Loan Agreement is executed in Stage 6.</p>
+            <p className="text-gray-500 text-sm italic">This stage will activate once the Loan Agreement is executed in Stage 8.</p>
           )}
           {(disbursementDetails?.status === 'SUCCESS' || currentStatus === 'ACTIVE') && (
-            <div className="mt-8 pt-6 border-t flex justify-end">
-              <button 
-                onClick={() => navigate(`/application/${applicationId}/8`)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-              >
-                Next: Final Status →
-              </button>
+            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
+              {maxAccessibleStage >= 10 ? (
+                <>
+                  <p className="text-sm text-gray-500">Funds disbursed. View final status.</p>
+                  <button 
+                    onClick={() => navigate(`/application/${applicationId}/10`)}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+                  >
+                    Next: Final Status →
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-amber-600 font-semibold italic">
+                  Waiting for Maker to grant permission for Final stage...
+                </p>
+              )}
             </div>
           )}
         </div>
         )}
 
-        {/* Stage 08: Post-Disbursement Stage */}
-        {activeStage === 8 && (
+        {/* Stage 10: Post-Disbursement Stage */}
+        {activeStage === 10 && (
           <div className="bg-white rounded-lg shadow-lg p-8 mb-6 text-center animate-fadeIn">
             <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">🎉</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Stage 8: Loan Active & Disbursed</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Stage 10: Loan Active & Disbursed</h2>
             <p className="text-gray-600 mb-8 max-w-md mx-auto">
               Your application process is complete. You can now manage your loan, view repayment schedules, and make payments from your personal dashboard.
             </p>

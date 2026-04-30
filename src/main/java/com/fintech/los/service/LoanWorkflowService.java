@@ -62,6 +62,7 @@ public class LoanWorkflowService {
         a.setUserId(userId);
         a.setStatus(ApplicationStatus.DRAFT);
         a.setStage("STAGE_02");
+        a.setAllowedStage(1);
         a.setLoanPurpose(req.getLoanPurpose());
         a.setRequestedAmount(req.getRequestedAmount());
         a.setTenureMonths(req.getTenureMonths());
@@ -132,6 +133,7 @@ public class LoanWorkflowService {
         }
         
         app.setStatus(ApplicationStatus.SUBMITTED);
+        app.setAllowedStage(2); // Maker Review stage
         app.setSubmittedAt(LocalDateTime.now());
         app.setUpdatedAt(LocalDateTime.now());
         
@@ -158,6 +160,7 @@ public class LoanWorkflowService {
         k.setUpdatedAt(LocalDateTime.now());
 
         app.setStatus(ApplicationStatus.KYC_VERIFIED);
+        app.setAllowedStage(4); // Move to Documents
         app.setStage("STAGE_03");
         app.setUpdatedAt(LocalDateTime.now());
         loanApplicationRepository.save(app);
@@ -211,6 +214,7 @@ public class LoanWorkflowService {
         if (allVerified && !allDocs.isEmpty()) {
             LoanApplication app = getApplication(applicationId);
             app.setStatus(ApplicationStatus.DOCS_COMPLETE);
+            app.setAllowedStage(5); // Move to Credit
             app.setStage("STAGE_04");
             app.setUpdatedAt(LocalDateTime.now());
             loanApplicationRepository.save(app);
@@ -233,6 +237,7 @@ public class LoanWorkflowService {
             loanDocumentRepository.save(doc);
         }
         app.setStatus(ApplicationStatus.DOCS_COMPLETE);
+        app.setAllowedStage(5); // Move to Credit
         app.setStage("STAGE_04");
         app.setUpdatedAt(LocalDateTime.now());
         loanApplicationRepository.save(app);
@@ -260,6 +265,7 @@ public class LoanWorkflowService {
         c.setUpdatedAt(LocalDateTime.now());
 
         app.setStatus(c.getFinalDecision() == Decision.APPROVED ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED);
+        app.setAllowedStage(6); // Move to Offer
         app.setStage("STAGE_05");
         if (c.getFinalDecision() == Decision.APPROVED) {
             app.setSanctionedAmount(app.getRequestedAmount());
@@ -288,6 +294,7 @@ public class LoanWorkflowService {
         o.setUpdatedAt(LocalDateTime.now());
 
         app.setStatus(ApplicationStatus.APPROVED);
+        app.setAllowedStage(7); // Move to Acceptance
         app.setStage("STAGE_06");
         app.setUpdatedAt(LocalDateTime.now());
         loanApplicationRepository.save(app);
@@ -305,6 +312,7 @@ public class LoanWorkflowService {
         offer.setUpdatedAt(LocalDateTime.now());
         LoanApplication app = getApplication(applicationId);
         app.setStatus(request.isAccepted() ? ApplicationStatus.ACCEPTED : ApplicationStatus.REJECTED);
+        app.setAllowedStage(request.isAccepted() ? 8 : app.getAllowedStage()); // Move to Agreement if accepted
         app.setStage("STAGE_07");
         app.setUpdatedAt(LocalDateTime.now());
         loanApplicationRepository.save(app);
@@ -329,6 +337,7 @@ public class LoanWorkflowService {
         a.setUpdatedAt(LocalDateTime.now());
 
         app.setStatus(ApplicationStatus.AGREEMENT_EXECUTED);
+        app.setAllowedStage(9); // Move to Disbursement
         app.setStage("STAGE_08");
         app.setUpdatedAt(LocalDateTime.now());
         loanApplicationRepository.save(app);
@@ -356,6 +365,7 @@ public class LoanWorkflowService {
         d.setUpdatedAt(LocalDateTime.now());
 
         app.setStatus(ApplicationStatus.DISBURSED);
+        app.setAllowedStage(10); // Move to Active/Mandate
         app.setStage("STAGE_09");
         app.setOutstandingPrincipal(app.getSanctionedAmount());
         app.setMandateStatus("PENDING");
@@ -376,6 +386,7 @@ public class LoanWorkflowService {
         }
         app.setMandateStatus("REGISTERED");
         app.setStatus(ApplicationStatus.ACTIVE);
+        app.setAllowedStage(10);
         app.setStage("STAGE_10");
         app.setUpdatedAt(LocalDateTime.now());
         LoanApplication saved = loanApplicationRepository.save(app);
