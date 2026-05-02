@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { TrendingUp, CheckCircle, Clock, DollarSign, FileText, ArrowRight, Sparkles, HelpCircle } from 'lucide-react';
+import { CheckCircle, Clock, DollarSign, FileText, ArrowRight, HelpCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -12,8 +12,22 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Role-based redirection if accessing generic dashboard
+    if (user?.role === 'ADMIN') {
+      navigate('/admin');
+      return;
+    }
+    if (user?.role === 'LOAN_OFFICER' || user?.role === 'RM') {
+      navigate('/maker');
+      return;
+    }
+    if (['BRANCH_MANAGER', 'REGIONAL_CREDIT_MGR', 'ZONAL_HEAD', 'CREDIT_COMMITTEE', 'BOD'].includes(user?.role || '')) {
+      navigate('/checker');
+      return;
+    }
+
     fetchDashboardData();
-  }, []);
+  }, [user, navigate]);
 
   const fetchDashboardData = async () => {
     try {
@@ -67,8 +81,8 @@ const Dashboard = () => {
     <div className="min-h-screen py-8 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Welcome Section */}
-        <div className="mb-8 animate-fadeIn">
-          <div className="flex items-center gap-4 mb-2">
+        <div className="mb-8 animate-fadeIn flex justify-between items-start">
+          <div className="flex items-center gap-4 mb-2 flex-1">
             <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center text-white text-2xl shadow-lg shadow-violet-500/30">
               {user?.name?.charAt(0) || 'U'}
             </div>
@@ -83,57 +97,12 @@ const Dashboard = () => {
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <button
-            onClick={() => navigate('/apply')}
-            className="card-modern p-6 card-hover group text-left animate-fadeIn"
-            style={{ animationDelay: '0.1s' }}
-          >
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Apply for Loan</h3>
-            <p className="text-gray-600 mb-4">Start a new loan application</p>
-            <div className="flex items-center gap-2 text-emerald-600 font-semibold group-hover:gap-3 transition-all">
-              <span>Get Started</span>
-              <ArrowRight className="w-5 h-5" />
-            </div>
-          </button>
-
-          <button
-            onClick={() => navigate('/applications')}
-            className="card-modern p-6 card-hover group text-left animate-fadeIn"
-            style={{ animationDelay: '0.2s' }}
-          >
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">View Applications</h3>
-            <p className="text-gray-600 mb-4">Check your loan applications</p>
-            <div className="flex items-center gap-2 text-blue-600 font-semibold group-hover:gap-3 transition-all">
-              <span>View All</span>
-              <ArrowRight className="w-5 h-5" />
-            </div>
-          </button>
-
-          {user?.role === 'ADMIN' && (
+          {user?.role === 'CUSTOMER' && (
             <button
-              onClick={() => navigate('/admin')}
-              className="card-modern p-6 card-hover group text-left animate-fadeIn"
-              style={{ animationDelay: '0.3s' }}
+              onClick={() => navigate('/apply')}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all duration-300 font-semibold whitespace-nowrap"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center mb-4 shadow-lg shadow-violet-500/30 group-hover:scale-110 transition-transform">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Admin Panel</h3>
-              <p className="text-gray-600 mb-4">Manage all applications</p>
-              <div className="flex items-center gap-2 text-violet-600 font-semibold group-hover:gap-3 transition-all">
-                <span>Manage</span>
-                <ArrowRight className="w-5 h-5" />
-              </div>
+              <span>+ New Application</span>
             </button>
           )}
         </div>
@@ -205,14 +174,7 @@ const Dashboard = () => {
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
                 <FileText className="w-10 h-10 text-violet-400" />
               </div>
-              <p className="text-gray-600 mb-6 text-lg">No applications yet</p>
-              <button
-                onClick={() => navigate('/apply')}
-                className="btn-primary inline-flex items-center gap-2"
-              >
-                <span>Create Your First Application</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
+              <p className="text-gray-600 text-lg">No applications yet</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     employment_type VARCHAR(32),
     city VARCHAR(80),
     dob DATE,
+    approval_limit NUMERIC(15,2),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS loan_applications (
     existing_emi NUMERIC(15,2),
     dti_ratio NUMERIC(8,4),
     stage VARCHAR(30),
+    allowed_stage INT DEFAULT 1,
     father_name VARCHAR(120),
     mother_name VARCHAR(120),
     gender VARCHAR(20),
@@ -62,9 +64,21 @@ CREATE TABLE IF NOT EXISTS loan_applications (
     bank_account_type VARCHAR(30),
     bank_ifsc VARCHAR(20),
     submitted_at TIMESTAMP,
+    tier VARCHAR(20),
+    created_by BIGINT,
+    current_assigned_to BIGINT,
+    sla_deadline TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- Ensure allowed_stage exists in case table was already created
+ALTER TABLE loan_applications ADD COLUMN IF NOT EXISTS allowed_stage INT DEFAULT 1;
+
+-- Fix for enum constraint issues when new statuses are added (e.g., MAKER_CHECKED)
+ALTER TABLE loan_applications DROP CONSTRAINT IF EXISTS loan_applications_status_check;
+ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_new_status_check;
+ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_previous_status_check;
 
 CREATE TABLE IF NOT EXISTS kyc_details (
     id BIGSERIAL PRIMARY KEY,
@@ -189,3 +203,157 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     request_id VARCHAR(64),
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS tier_configs (
+    id BIGSERIAL PRIMARY KEY,
+    tier VARCHAR(20) UNIQUE NOT NULL,
+    min_amount NUMERIC(15,2),
+    max_amount NUMERIC(15,2),
+    required_checker_role VARCHAR(32),
+    dual_checker_required BOOLEAN DEFAULT FALSE,
+    sla_working_days INT,
+    auto_decision_enabled BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS approval_tasks (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL REFERENCES loan_applications(id),
+    tier VARCHAR(20),
+    level INT,
+    assigned_to BIGINT,
+    assigned_role VARCHAR(32),
+    status VARCHAR(30),
+    remarks TEXT,
+    actioned_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS loan_audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    application_id BIGINT NOT NULL,
+    actor_id BIGINT,
+    actor_role VARCHAR(32),
+    action VARCHAR(64),
+    previous_status VARCHAR(40),
+    new_status VARCHAR(40),
+    ip_address VARCHAR(45),
+    device_id VARCHAR(100),
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
+    previous_hash VARCHAR(64),
+    current_hash VARCHAR(64)
+);
+
+-- View for submitted applications with all relevant details for makers
+DROP VIEW IF EXISTS submitted_applications_view CASCADE;
+CREATE OR REPLACE VIEW submitted_applications_view AS
+SELECT
+    la.id,
+    la.application_ref,
+    la.user_id,
+    u.full_name as customer_name,
+    u.mobile as customer_mobile,
+    u.email as customer_email,
+    la.status,
+    la.loan_purpose,
+    la.requested_amount,
+    la.tenure_months,
+    la.monthly_income,
+    la.existing_emi,
+    la.dti_ratio,
+    la.tier,
+    la.submitted_at,
+    la.created_at,
+    la.updated_at,
+    la.sla_deadline,
+    la.allowed_stage,
+    la.company_name,
+    la.designation,
+    la.total_experience_months,
+    la.bank_name,
+    la.bank_account_number,
+    la.bank_account_type,
+    la.bank_ifsc,
+    la.father_name,
+    la.mother_name,
+    la.gender,
+    la.marital_status,
+    la.dependents,
+    la.current_address,
+    la.permanent_address,
+    la.residential_stability,
+    la.employee_id,
+    la.office_address,
+    la.official_email,
+    la.gross_monthly_income,
+    la.net_take_home_salary,
+    la.other_income,
+    la.existing_loans_count,
+    la.credit_card_outstanding,
+    la.current_experience_months,
+    la.sanctioned_amount,
+    la.annual_interest_rate,
+    u.employment_type,
+
+    -- KYC Details
+    kyc.pan,
+    kyc.aadhaar_token,
+    kyc.pan_verified,
+    kyc.aadhaar_verified,
+    kyc.ckyc_found,
+    kyc.fraud_flag,
+    kyc.aml_flag,
+    kyc.status as kyc_status,
+    kyc.remarks as kyc_remarks,
+
+    -- Credit Assessment
+    ca.bureau_score,
+    ca.internal_score,
+    ca.risk_grade,
+    ca.policy_passed,
+    ca.stp_eligible,
+    ca.final_decision,
+    ca.decision_reason,
+
+    -- Document Count
+    COUNT(DISTINCT ld.id) as document_count,
+    COUNT(DISTINCT CASE WHEN ld.verification_status = 'VERIFIED' THEN ld.id END) as verified_document_count,
+
+    -- Underwriter Reviews
+    COUNT(DISTINCT ur.id) as review_count,
+    MAX(ur.created_at) as last_review_date,
+
+    -- Current Assignment
+    la.current_assigned_to,
+    assigned_user.full_name as assigned_to_name,
+    assigned_user.role as assigned_to_role
+
+FROM loan_applications la
+LEFT JOIN users u ON la.user_id = u.id
+LEFT JOIN kyc_details kyc ON la.id = kyc.application_id
+LEFT JOIN credit_assessments ca ON la.id = ca.application_id
+LEFT JOIN loan_documents ld ON la.id = ld.application_id
+LEFT JOIN underwriter_reviews ur ON la.id = ur.application_id
+LEFT JOIN users assigned_user ON la.current_assigned_to = assigned_user.id
+
+WHERE la.status IN ('SUBMITTED', 'MAKER_CHECKED', 'UNDER_REVIEW', 'KYC_VERIFIED', 'DOCS_COMPLETE', 'RETURNED', 'APPROVED', 'ACCEPTED', 'AGREEMENT_EXECUTED')
+
+GROUP BY
+    la.id, la.application_ref, la.user_id, u.full_name, u.mobile, u.email,
+    la.status, la.loan_purpose, la.requested_amount, la.tenure_months,
+    la.monthly_income, la.existing_emi, la.dti_ratio, la.tier,
+    la.submitted_at, la.created_at, la.updated_at, la.sla_deadline, la.allowed_stage,
+    la.company_name, la.designation, la.total_experience_months,
+    la.bank_name, la.bank_account_number, la.bank_account_type, la.bank_ifsc,
+    la.father_name, la.mother_name, la.gender, la.marital_status, la.dependents,
+    la.current_address, la.permanent_address, la.residential_stability,
+    la.employee_id, la.office_address, la.official_email,
+    la.gross_monthly_income, la.net_take_home_salary, la.other_income,
+    la.existing_loans_count, la.credit_card_outstanding, la.current_experience_months,
+    la.sanctioned_amount, la.annual_interest_rate,
+    u.employment_type,
+    kyc.pan, kyc.aadhaar_token, kyc.pan_verified, kyc.aadhaar_verified,
+    kyc.ckyc_found, kyc.fraud_flag, kyc.aml_flag, kyc.status, kyc.remarks,
+    ca.bureau_score, ca.internal_score, ca.risk_grade, ca.policy_passed,
+    ca.stp_eligible, ca.final_decision, ca.decision_reason,
+    la.current_assigned_to, assigned_user.full_name, assigned_user.role
+
+ORDER BY la.submitted_at DESC;

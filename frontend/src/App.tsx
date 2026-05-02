@@ -19,6 +19,10 @@ import LoanDashboard from './components/Loan/LoanDashboard';
 // Admin Components
 import AdminDashboard from './components/Admin/AdminDashboard';
 
+// Workflow Components
+import MakerDashboard from './components/Workflow/MakerDashboard';
+import CheckerDashboard from './components/Workflow/CheckerDashboard';
+
 function App() {
   return (
     <DarkModeProvider>
@@ -93,6 +97,24 @@ function App() {
           element={
             <ProtectedRoute roles={['ADMIN']}>
               <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Workflow Routes */}
+        <Route
+          path="/maker"
+          element={
+            <ProtectedRoute roles={['LOAN_OFFICER', 'RM', 'CREDIT_ANALYST']}>
+              <MakerDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checker"
+          element={
+            <ProtectedRoute roles={['BRANCH_MANAGER', 'REGIONAL_CREDIT_MGR', 'ZONAL_HEAD', 'CREDIT_COMMITTEE', 'BOD']}>
+              <CheckerDashboard />
             </ProtectedRoute>
           }
         />

@@ -75,5 +75,6 @@ public final class AuthDtos {
         @NotNull
         private Long userId;
         private String customerId;
+        private String fullName;
     }
 }

@@ -108,7 +108,12 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByMobile(request.getMobile()).orElseThrow(() -> new BusinessException("User not found"));
+        log.info("[AUTH] Attempting login for mobile: '{}'", request.getMobile());
+        User user = userRepository.findByMobile(request.getMobile())
+                .orElseThrow(() -> {
+                    log.error("[AUTH] Login failed: User not found for mobile '{}'", request.getMobile());
+                    return new BusinessException("User not found");
+                });
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new BusinessException("Invalid credentials");
         }
@@ -153,6 +158,7 @@ public class AuthService {
         response.setRole(user.getRole().name());
         response.setUserId(user.getId());
         response.setCustomerId(user.getCustomerId());
+        response.setFullName(user.getFullName());
         return response;
     }
 

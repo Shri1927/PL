@@ -32,15 +32,20 @@ public class AuditLoggingFilter extends OncePerRequestFilter {
         if (!MUTATING_METHODS.contains(request.getMethod())) {
             return;
         }
-        AuditLog log = new AuditLog();
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        log.setActor(authentication != null ? String.valueOf(authentication.getPrincipal()) : "anonymous");
-        log.setHttpMethod(request.getMethod());
-        log.setPath(request.getRequestURI());
-        log.setStatusCode(response.getStatus());
-        log.setSuccess(response.getStatus() < 400);
-        log.setRequestId(UUID.randomUUID().toString());
-        log.setCreatedAt(LocalDateTime.now());
-        auditLogRepository.save(log);
+        try {
+            AuditLog log = new AuditLog();
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            log.setActor(authentication != null ? String.valueOf(authentication.getPrincipal()) : "anonymous");
+            log.setHttpMethod(request.getMethod());
+            log.setPath(request.getRequestURI());
+            log.setStatusCode(response.getStatus());
+            log.setSuccess(response.getStatus() < 400);
+            log.setRequestId(UUID.randomUUID().toString());
+            log.setCreatedAt(LocalDateTime.now());
+            auditLogRepository.save(log);
+        } catch (Exception e) {
+            // Log but don't fail the request
+            logger.error("Failed to save audit log: " + e.getMessage());
+        }
     }
 }
