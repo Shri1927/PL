@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS loan_applications (
     bank_account_number VARCHAR(50),
     bank_account_type VARCHAR(30),
     bank_ifsc VARCHAR(20),
+    mandate_status VARCHAR(30),
+    outstanding_principal NUMERIC(15,2),
+    next_emi_due_date DATE,
     submitted_at TIMESTAMP,
     tier VARCHAR(20),
     created_by BIGINT,
@@ -74,11 +77,14 @@ CREATE TABLE IF NOT EXISTS loan_applications (
 
 -- Ensure allowed_stage exists in case table was already created
 ALTER TABLE loan_applications ADD COLUMN IF NOT EXISTS allowed_stage INT DEFAULT 1;
+ALTER TABLE loan_applications ADD COLUMN IF NOT EXISTS mandate_status VARCHAR(30);
+ALTER TABLE loan_applications ADD COLUMN IF NOT EXISTS outstanding_principal NUMERIC(15,2);
+ALTER TABLE loan_applications ADD COLUMN IF NOT EXISTS next_emi_due_date DATE;
 
 -- Fix for enum constraint issues when new statuses are added (e.g., MAKER_CHECKED)
 ALTER TABLE loan_applications DROP CONSTRAINT IF EXISTS loan_applications_status_check;
-ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_new_status_check;
-ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_previous_status_check;
+ALTER TABLE IF EXISTS loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_new_status_check;
+ALTER TABLE IF EXISTS loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_previous_status_check;
 
 CREATE TABLE IF NOT EXISTS kyc_details (
     id BIGSERIAL PRIMARY KEY,
