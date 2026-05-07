@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
-import { Menu, X, Settings, LogOut, User, LayoutDashboard, Moon, Sun, Landmark } from 'lucide-react';
+import { Menu, X, Settings, LogOut, User, LayoutDashboard, Moon, Sun } from 'lucide-react';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -17,17 +17,17 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 glass-card">
+    <nav className="sticky top-0 z-50 glass-card border-b border-white/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-200">
-              <Landmark className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg shadow-violet-500/30 group-hover:shadow-xl group-hover:shadow-violet-500/40 transition-all duration-300">
+              <span className="text-white text-xl">💰</span>
             </div>
             <div className="hidden sm:block">
               <h1 className="text-xl font-bold text-gradient">LoanHub</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Personal Loan LOS</p>
+              <p className="text-xs text-gray-500">Personal Loan LOS</p>
             </div>
           </Link>
 
