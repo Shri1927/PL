@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Phone, Shield, User, Mail, Calendar, MapPin, Briefcase, Lock, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { Phone, Shield, User, Mail, Calendar, MapPin, Briefcase, Lock, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 const Register = () => {
   const [step, setStep] = useState<'mobile' | 'otp' | 'profile'>('mobile');
@@ -119,8 +119,12 @@ const Register = () => {
   const currentStepIndex = steps.findIndex(s => s.id === step);
 
   return (
-    <div className="auth-shell">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50">
       <div className="w-full max-w-md">
+        {/* Decorative Elements */}
+        <div className="absolute top-20 left-20 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float"></div>
+        <div className="absolute top-20 right-20 w-72 h-72 bg-violet-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-float" style={{ animationDelay: '1s' }}></div>
+
         {/* Register Card */}
         <div className="relative card-modern p-8 sm:p-10 animate-scaleIn">
           {/* Progress Steps */}
@@ -161,7 +165,7 @@ const Register = () => {
               {step === 'otp' && 'Verify Mobile'}
               {step === 'profile' && 'Complete Profile'}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-gray-500">
               {step === 'mobile' && 'Enter your mobile number to begin'}
               {step === 'otp' && 'Enter the OTP sent to your phone'}
               {step === 'profile' && 'Tell us a bit about yourself'}
@@ -169,8 +173,8 @@ const Register = () => {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 shrink-0" />
+            <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+              <span className="text-lg">⚠️</span>
               <span className="text-sm font-medium">{error}</span>
             </div>
           )}
@@ -187,7 +191,7 @@ const Register = () => {
           >
             {step === 'mobile' && (
               <div className="space-y-2">
-                <label className="block text-sm font-semibold mb-2">Mobile Number</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Mobile Number</label>
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -220,7 +224,7 @@ const Register = () => {
                   />
                 </div>
                 <p className="text-sm text-gray-500 mt-2 flex items-center gap-1">
-                  <Info className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span className="text-violet-600">ℹ️</span>
                   Check server logs for OTP (sent to {formData.mobile})
                 </p>
               </div>
@@ -229,7 +233,7 @@ const Register = () => {
             {step === 'profile' && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold mb-2">Full Name</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -245,7 +249,7 @@ const Register = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold mb-2">Email</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -262,7 +266,7 @@ const Register = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold mb-2">Date of Birth</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Date of Birth</label>
                     <div className="relative">
                       <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
@@ -276,7 +280,7 @@ const Register = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold mb-2">City</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">City</label>
                     <div className="relative">
                       <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
@@ -293,7 +297,7 @@ const Register = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold mb-2">Employment Type</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Employment Type</label>
                   <div className="relative">
                     <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <select
@@ -311,7 +315,7 @@ const Register = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold mb-2">Password</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
@@ -321,12 +325,12 @@ const Register = () => {
                         onChange={handleInputChange}
                         required
                         className="input-modern pl-12"
-                        placeholder="Password"
+                        placeholder="••••••••"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold mb-2">Confirm Password</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
@@ -336,7 +340,7 @@ const Register = () => {
                         onChange={handleInputChange}
                         required
                         className="input-modern pl-12"
-                        placeholder="Confirm password"
+                        placeholder="••••••••"
                       />
                     </div>
                   </div>
@@ -368,7 +372,7 @@ const Register = () => {
             <button
               type="button"
               onClick={() => setStep(step === 'profile' ? 'otp' : 'mobile')}
-              className="w-full mt-4 flex items-center justify-center gap-2 text-slate-600 hover:text-teal-700 font-semibold transition-colors dark:text-slate-300 dark:hover:text-teal-300"
+              className="w-full mt-4 flex items-center justify-center gap-2 text-violet-600 hover:text-violet-700 font-semibold transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back</span>
@@ -378,10 +382,10 @@ const Register = () => {
           {/* Login Link */}
           {step === 'mobile' && (
             <div className="text-center mt-6">
-              <p className="text-slate-600 dark:text-slate-300 mb-4">Already have an account?</p>
+              <p className="text-gray-600 mb-4">Already have an account?</p>
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-700 font-semibold rounded-lg border border-slate-200 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-800 hover:shadow-sm transition-all duration-200 group dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-100 to-indigo-100 text-violet-700 font-semibold rounded-xl border-2 border-violet-200 hover:border-violet-400 hover:shadow-lg hover:shadow-violet-500/20 transition-all duration-300 group"
               >
                 <span>Sign In</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -391,7 +395,7 @@ const Register = () => {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
+        <p className="text-center text-sm text-gray-500 mt-6">
           By creating an account, you agree to our Terms of Service and Privacy Policy
         </p>
       </div>
