@@ -76,5 +76,7 @@ public final class AuthDtos {
         private Long userId;
         private String customerId;
         private String fullName;
+        private String mobile;
+        private String email;
     }
 }

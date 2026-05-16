@@ -53,6 +53,9 @@ public class DataInitializer implements CommandLineRunner {
         // Checker - Regional Mgr (Limit 25L)
         createUser("7777777777", "Checker RCM 01", UserRole.REGIONAL_CREDIT_MGR, new BigDecimal("2500000"));
         createUser("7777777778", "Checker RCM 02", UserRole.REGIONAL_CREDIT_MGR, new BigDecimal("2500000"));
+
+        // Checker - Credit Committee (Tier 4)
+        createUser("6666666666", "Checker CC 01", UserRole.CREDIT_COMMITTEE, new BigDecimal("999999999"));
     }
 
     private void createUser(String mobile, String name, UserRole role, BigDecimal limit) {

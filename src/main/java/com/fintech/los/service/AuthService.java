@@ -80,30 +80,44 @@ public class AuthService {
 
     @Transactional
     public AuthResponse registerProfile(RegisterProfileRequest request) {
+        log.info("[AUTH] Attempting profile registration for mobile: '{}'", request.getMobile());
         if (!"true".equals(redisTemplate.opsForValue().get("otp_verified:" + request.getMobile()))) {
+            log.error("[AUTH] Registration failed: OTP not verified for '{}'", request.getMobile());
             throw new BusinessException("OTP not verified or verification expired");
         }
         if (userRepository.findByMobile(request.getMobile()).isPresent()) {
+            log.error("[AUTH] Registration failed: Mobile already registered '{}'", request.getMobile());
             throw new BusinessException("Mobile already registered");
         }
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            log.error("[AUTH] Registration failed: Email already registered '{}'", request.getEmail());
+            throw new BusinessException("Email already registered");
+        }
         
-        User user = new User();
-        user.setCustomerId("CIF" + (100000 + new Random().nextInt(900000)));
-        user.setMobile(request.getMobile());
-        user.setEmail(request.getEmail());
-        user.setFullName(request.getFullName());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setRole(UserRole.CUSTOMER);
-        user.setCity(request.getCity());
-        user.setDob(request.getDob());
-        user.setEmploymentType(request.getEmploymentType());
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
+        try {
+            User user = new User();
+            user.setCustomerId("CIF" + (100000 + new Random().nextInt(900000)));
+            user.setMobile(request.getMobile());
+            user.setEmail(request.getEmail());
+            user.setFullName(request.getFullName());
+            user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+            user.setRole(UserRole.CUSTOMER);
+            user.setCity(request.getCity());
+            user.setDob(request.getDob());
+            user.setEmploymentType(request.getEmploymentType());
+            user.setCreatedAt(LocalDateTime.now());
+            user.setUpdatedAt(LocalDateTime.now());
+            
+            User savedUser = userRepository.save(user);
+            log.info("[AUTH] User saved successfully with ID: {}", savedUser.getId());
 
-        redisTemplate.delete("otp_verified:" + request.getMobile());
+            redisTemplate.delete("otp_verified:" + request.getMobile());
 
-        return buildTokens(user);
+            return buildTokens(savedUser);
+        } catch (Exception e) {
+            log.error("[AUTH] Unexpected error during profile registration", e);
+            throw e;
+        }
     }
 
     @Transactional
@@ -159,6 +173,8 @@ public class AuthService {
         response.setUserId(user.getId());
         response.setCustomerId(user.getCustomerId());
         response.setFullName(user.getFullName());
+        response.setMobile(user.getMobile());
+        response.setEmail(user.getEmail());
         return response;
     }
 

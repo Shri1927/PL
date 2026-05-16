@@ -19,14 +19,14 @@ public final class LoanWorkflowDtos {
         @NotBlank
         private String loanPurpose;
         @NotNull
-        @Positive
+        @Min(1)
         private BigDecimal requestedAmount;
         @NotNull
         @Min(12)
         @Max(60)
         private Integer tenureMonths;
         @NotNull
-        @Positive
+        @Min(0)
         private BigDecimal monthlyIncome;
         @NotNull
         @Min(0)

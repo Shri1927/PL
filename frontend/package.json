@@ -14,11 +14,15 @@
     "@types/react-router-dom": "^5.3.3",
     "autoprefixer": "^10.5.0",
     "axios": "^1.15.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^0.561.0",
     "postcss": "^8.5.10",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.1",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.2.3"
   },
   "devDependencies": {

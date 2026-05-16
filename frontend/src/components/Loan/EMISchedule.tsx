@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { ArrowLeft, Calendar, CheckCircle, DollarSign, TrendingUp, History, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Calendar, CheckCircle, DollarSign, TrendingUp, History } from 'lucide-react';
+import { Card } from '../../ui/Card';
+import { Button } from '../../ui/Button';
+import { MStripeDivider } from '../../ui/Divider';
+import { TabButton, TabUnderline } from '../../ui/Tabs';
 
 const EMISchedule = () => {
   const { applicationId } = useParams();
@@ -37,7 +41,7 @@ const EMISchedule = () => {
     }
   };
 
-  const handlePayment = async (installmentNumber: number) => {
+  const handlePayment = async (_installmentNumber: number) => {
     try {
       await api.post(`/workflow/applications/${applicationId}/emi/pay`, {
         amount: emiSchedule?.monthlyEmi,
@@ -54,8 +58,8 @@ const EMISchedule = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin"></div>
-          <p className="text-lg text-gray-600 font-medium">Loading EMI schedule...</p>
+          <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+          <p className="text-xs ui-label-uppercase ui-text-body">Loading EMI schedule...</p>
         </div>
       </div>
     );
@@ -64,20 +68,17 @@ const EMISchedule = () => {
   if (error && !emiSchedule) {
     return (
       <div className="min-h-screen p-4">
-        <div className="max-w-4xl mx-auto">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="mb-6 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all"
-          >
+        <div className="mx-auto max-w-[1440px]">
+          <Button onClick={() => navigate('/dashboard')} className="mb-6">
             <ArrowLeft className="w-5 h-5" />
             <span>Back to Dashboard</span>
-          </button>
-          <div className="card-modern p-6">
-            <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
-              <span className="text-lg">⚠️</span>
-              <span className="text-sm font-medium">{error}</span>
+          </Button>
+          <Card className="p-6" tone="card">
+            <div className="border border-white/20 ui-surface-soft px-4 py-3">
+              <div className="ui-label-uppercase text-xs text-white">Error</div>
+              <div className="text-sm ui-text-body-strong">{error}</div>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     );
@@ -85,108 +86,96 @@ const EMISchedule = () => {
 
   return (
     <div className="min-h-screen py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="mb-6 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all"
-        >
+      <div className="mx-auto max-w-[1440px]">
+        <Button onClick={() => navigate('/dashboard')} className="mb-6">
           <ArrowLeft className="w-5 h-5" />
           <span>Back to Dashboard</span>
-        </button>
+        </Button>
 
-        <div className="card-modern p-8 mb-6">
+        <Card className="p-8 mb-6" tone="card">
+          <MStripeDivider className="mb-8" />
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <div className="w-12 h-12 border ui-hairline flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gradient">EMI Schedule</h1>
-                <p className="text-gray-500 text-sm">Application ID: {applicationId}</p>
+                <h1 className="text-2xl ui-label-uppercase">EMI Schedule</h1>
+                <p className="ui-text-muted text-sm">Application ID: {applicationId}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600 font-medium">Total Outstanding</p>
-              <p className="text-3xl font-bold text-gradient">
-                ₹{emiSchedule?.totalOutstanding?.toLocaleString() || 0}
-              </p>
+              <p className="text-xs ui-label-uppercase ui-text-body">Total Outstanding</p>
+              <p className="text-3xl font-bold">₹{emiSchedule?.totalOutstanding?.toLocaleString() || 0}</p>
             </div>
           </div>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="card-modern p-6 card-hover">
+            <Card className="p-6" tone="soft">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <div className="w-12 h-12 border ui-hairline flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Total</span>
+                <span className="text-xs ui-label-uppercase ui-text-muted">Total</span>
               </div>
-              <p className="text-sm text-gray-600 font-semibold mb-1">Total EMIs</p>
-              <p className="text-3xl font-bold text-blue-600">{emiSchedule?.totalEmis}</p>
-            </div>
-            <div className="card-modern p-6 card-hover">
+              <p className="text-xs ui-label-uppercase ui-text-body mb-2">Total EMIs</p>
+              <p className="text-3xl font-bold">{emiSchedule?.totalEmis}</p>
+            </Card>
+            <Card className="p-6" tone="soft">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <div className="w-12 h-12 border ui-hairline flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full">Paid</span>
+                <span className="text-xs ui-label-uppercase ui-text-muted">Paid</span>
               </div>
-              <p className="text-sm text-gray-600 font-semibold mb-1">Paid EMIs</p>
-              <p className="text-3xl font-bold text-emerald-600">{emiSchedule?.paidEmis}</p>
-            </div>
-            <div className="card-modern p-6 card-hover">
+              <p className="text-xs ui-label-uppercase ui-text-body mb-2">Paid EMIs</p>
+              <p className="text-3xl font-bold">{emiSchedule?.paidEmis}</p>
+            </Card>
+            <Card className="p-6" tone="soft">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                <div className="w-12 h-12 border ui-hairline flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xs font-semibold text-amber-600 bg-amber-100 px-3 py-1 rounded-full">Due</span>
+                <span className="text-xs ui-label-uppercase ui-text-muted">Due</span>
               </div>
-              <p className="text-sm text-gray-600 font-semibold mb-1">Remaining EMIs</p>
-              <p className="text-3xl font-bold text-amber-600">{emiSchedule?.totalEmis - emiSchedule?.paidEmis}</p>
-            </div>
-            <div className="card-modern p-6 card-hover">
+              <p className="text-xs ui-label-uppercase ui-text-body mb-2">Remaining EMIs</p>
+              <p className="text-3xl font-bold">{emiSchedule?.totalEmis - emiSchedule?.paidEmis}</p>
+            </Card>
+            <Card className="p-6" tone="soft">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                <div className="w-12 h-12 border ui-hairline flex items-center justify-center">
                   <DollarSign className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xs font-semibold text-violet-600 bg-violet-100 px-3 py-1 rounded-full">Monthly</span>
+                <span className="text-xs ui-label-uppercase ui-text-muted">Monthly</span>
               </div>
-              <p className="text-sm text-gray-600 font-semibold mb-1">Monthly EMI</p>
-              <p className="text-3xl font-bold text-violet-600">
-                ₹{emiSchedule?.monthlyEmi?.toLocaleString()}
-              </p>
-            </div>
+              <p className="text-xs ui-label-uppercase ui-text-body mb-2">Monthly EMI</p>
+              <p className="text-3xl font-bold">₹{emiSchedule?.monthlyEmi?.toLocaleString()}</p>
+            </Card>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`px-6 py-3 font-semibold rounded-t-xl transition-all ${
-                activeTab === 'schedule'
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>EMI Schedule</span>
-              </span>
-            </button>
-            <button
-              onClick={() => setActiveTab('transactions')}
-              className={`px-6 py-3 font-semibold rounded-t-xl transition-all ${
-                activeTab === 'transactions'
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <History className="w-4 h-4" />
-                <span>Payment History</span>
-              </span>
-            </button>
+          <div className="border-b ui-hairline mb-6">
+            <div className="flex gap-8">
+              <div className="flex flex-col">
+                <TabButton onClick={() => setActiveTab('schedule')}>
+                  <span className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>EMI Schedule</span>
+                  </span>
+                </TabButton>
+                {activeTab === 'schedule' ? <TabUnderline /> : <div className="h-0.5 w-full bg-transparent" />}
+              </div>
+              <div className="flex flex-col">
+                <TabButton onClick={() => setActiveTab('transactions')}>
+                  <span className="flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    <span>Payment History</span>
+                  </span>
+                </TabButton>
+                {activeTab === 'transactions' ? <TabUnderline /> : <div className="h-0.5 w-full bg-transparent" />}
+              </div>
+            </div>
           </div>
 
           {/* EMI Schedule Table */}
@@ -194,38 +183,38 @@ const EMISchedule = () => {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b-2 border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Installment #</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Due Date</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Principal</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Interest</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Total EMI</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Outstanding</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Action</th>
+                  <tr className="border-b ui-hairline">
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Installment</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Due Date</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Principal</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Interest</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Total</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Outstanding</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Status</th>
+                    <th className="text-center py-3 px-4 text-xs ui-label-uppercase ui-text-body">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {emiSchedule?.installments?.map((installment: any) => (
-                    <tr key={installment.installmentNumber} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 font-semibold text-gray-800">#{installment.installmentNumber}</td>
-                      <td className="py-3 px-4 text-gray-800">
+                    <tr key={installment.installmentNumber} className="border-b ui-hairline hover:bg-white/5 transition-colors">
+                      <td className="py-3 px-4 font-mono text-sm text-white/90">#{installment.installmentNumber}</td>
+                      <td className="py-3 px-4 text-sm ui-text-body">
                         {new Date(installment.dueDate).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-4 text-gray-800">₹{installment.principal.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-gray-800">₹{installment.interest.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-gray-800 font-semibold">
+                      <td className="py-3 px-4 text-sm text-white/90">₹{installment.principal.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-sm text-white/90">₹{installment.interest.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-sm text-white">
                         ₹{installment.totalEmi.toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-gray-800">₹{installment.outstandingBalance.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-sm ui-text-body">₹{installment.outstandingBalance.toLocaleString()}</td>
                       <td className="py-3 px-4">
                         <span
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+                          className={`px-3 py-1.5 text-xs ui-label-uppercase border ${
                             installment.status === 'PAID'
-                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                              ? 'ui-surface-soft text-white/80 border-white/20'
                               : installment.status === 'DUE'
-                              ? 'bg-amber-100 text-amber-700 border-amber-200'
-                              : 'bg-gray-100 text-gray-700 border-gray-200'
+                              ? 'ui-surface-soft text-white/80 border-white/20'
+                              : 'ui-surface-soft text-white/80 border-white/20'
                           }`}
                         >
                           {installment.status}
@@ -233,15 +222,12 @@ const EMISchedule = () => {
                       </td>
                       <td className="py-3 px-4 text-center">
                         {installment.status === 'DUE' && (
-                          <button
-                            onClick={() => handlePayment(installment.installmentNumber)}
-                            className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg text-sm font-semibold shadow-md shadow-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/40 transition-all hover:-translate-y-0.5"
-                          >
+                          <Button size="sm" onClick={() => handlePayment(installment.installmentNumber)}>
                             Pay Now
-                          </button>
+                          </Button>
                         )}
                         {installment.status === 'PAID' && (
-                          <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                          <span className="ui-label-uppercase text-xs text-white/80 flex items-center gap-1 justify-center">
                             <CheckCircle className="w-4 h-4" />
                             <span>Paid</span>
                           </span>
@@ -259,36 +245,36 @@ const EMISchedule = () => {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b-2 border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Transaction ID</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Installment #</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Amount</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Payment Date</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                  <tr className="border-b ui-hairline">
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Transaction</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Installment</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Amount</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Payment Date</th>
+                    <th className="text-left py-3 px-4 text-xs ui-label-uppercase ui-text-body">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 px-4 text-center text-gray-600">
+                      <td colSpan={5} className="py-8 px-4 text-center ui-text-body">
                         No payment history available
                       </td>
                     </tr>
                   ) : (
                     transactions.map((transaction: any) => (
-                      <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-mono text-sm text-gray-800">
+                      <tr key={transaction.id} className="border-b ui-hairline hover:bg-white/5 transition-colors">
+                        <td className="py-3 px-4 font-mono text-sm text-white/90">
                           {String(transaction.id).slice(0, 8)}...
                         </td>
-                        <td className="py-3 px-4 text-gray-800">#{transaction.installmentNumber}</td>
-                        <td className="py-3 px-4 text-gray-800 font-semibold">
+                        <td className="py-3 px-4 text-white/90">#{transaction.installmentNumber}</td>
+                        <td className="py-3 px-4 text-white">
                           ₹{transaction.amount.toLocaleString()}
                         </td>
-                        <td className="py-3 px-4 text-gray-600">
+                        <td className="py-3 px-4 ui-text-body">
                           {new Date(transaction.paymentDate).toLocaleDateString()}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-3 py-1.5 rounded-full text-xs font-semibold border bg-emerald-100 text-emerald-700 border-emerald-200">
+                          <span className="px-3 py-1.5 text-xs ui-label-uppercase border ui-surface-soft text-white/80 border-white/20">
                             {transaction.status}
                           </span>
                         </td>
@@ -299,7 +285,7 @@ const EMISchedule = () => {
               </table>
             </div>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

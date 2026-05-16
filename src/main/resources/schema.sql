@@ -334,7 +334,7 @@ LEFT JOIN loan_documents ld ON la.id = ld.application_id
 LEFT JOIN underwriter_reviews ur ON la.id = ur.application_id
 LEFT JOIN users assigned_user ON la.current_assigned_to = assigned_user.id
 
-WHERE la.status IN ('SUBMITTED', 'MAKER_CHECKED', 'UNDER_REVIEW', 'KYC_VERIFIED', 'DOCS_COMPLETE', 'RETURNED', 'APPROVED', 'ACCEPTED', 'AGREEMENT_EXECUTED')
+WHERE la.status IN ('DRAFT', 'SUBMITTED', 'MAKER_CHECKED', 'UNDER_REVIEW', 'KYC_VERIFIED', 'DOCS_COMPLETE', 'RETURNED', 'APPROVED', 'ACCEPTED', 'AGREEMENT_EXECUTED')
 
 GROUP BY
     la.id, la.application_ref, la.user_id, u.full_name, u.mobile, u.email,

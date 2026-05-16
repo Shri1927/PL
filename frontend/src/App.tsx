@@ -1,15 +1,14 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { DarkModeProvider } from './contexts/DarkModeContext';
-import Navbar from './components/common/Navbar';
-import ProtectedRoute from './components/common/ProtectedRoute';
+import { WorkflowProvider } from './context/WorkflowContext';
+import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Auth Components
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 
 // Loan Components
-import Dashboard from './components/common/Dashboard';
 import LoanApplicationForm from './components/Loan/LoanApplicationForm';
 import LoanList from './components/Loan/LoanList';
 import ApplicationStatus from './components/Loan/ApplicationStatus';
@@ -19,14 +18,14 @@ import LoanDashboard from './components/Loan/LoanDashboard';
 // Admin Components
 import AdminDashboard from './components/Admin/AdminDashboard';
 
-// Workflow Components
-import MakerDashboard from './components/Workflow/MakerDashboard';
-import CheckerDashboard from './components/Workflow/CheckerDashboard';
+// Premium Components
+import PremiumDashboard from './components/PremiumDashboard/PremiumDashboard';
+import PremiumCustomerDashboard from './components/PremiumDashboard/PremiumCustomerDashboard';
 
 function App() {
   return (
-    <DarkModeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <WorkflowProvider>
         <Navbar />
         <Routes>
         {/* Public Routes */}
@@ -46,7 +45,7 @@ function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <PremiumCustomerDashboard />
             </ProtectedRoute>
           }
         />
@@ -54,7 +53,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <PremiumCustomerDashboard />
             </ProtectedRoute>
           }
         />
@@ -105,8 +104,8 @@ function App() {
         <Route
           path="/maker"
           element={
-            <ProtectedRoute roles={['LOAN_OFFICER', 'RM', 'CREDIT_ANALYST']}>
-              <MakerDashboard />
+            <ProtectedRoute roles={['LOAN_OFFICER', 'RM', 'CREDIT_ANALYST', 'UNDERWRITER']}>
+              <PremiumDashboard />
             </ProtectedRoute>
           }
         />
@@ -114,7 +113,16 @@ function App() {
           path="/checker"
           element={
             <ProtectedRoute roles={['BRANCH_MANAGER', 'REGIONAL_CREDIT_MGR', 'ZONAL_HEAD', 'CREDIT_COMMITTEE', 'BOD']}>
-              <CheckerDashboard />
+              <PremiumDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'LOAN_OFFICER', 'RM', 'CREDIT_ANALYST', 'UNDERWRITER']}>
+              <PremiumDashboard />
             </ProtectedRoute>
           }
         />
@@ -122,8 +130,8 @@ function App() {
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      </AuthProvider>
-    </DarkModeProvider>
+      </WorkflowProvider>
+    </AuthProvider>
   );
 }
 
