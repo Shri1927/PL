@@ -18,6 +18,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import com.fintech.los.domain.loan.LoanEnums.ApplicationStatus;
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -103,8 +105,15 @@ public class MakerCheckerController {
 
     @GetMapping("/dashboard/maker")
     public ApiResponse<List<LoanApplication>> getMakerQueue() {
-        User user = getCurrentUser();
-        return ok(applicationRepository.findByCreatedBy(user.getId()), "Maker queue fetched");
+        // Fetch all applications that haven't reached the final approved/disbursed/rejected stages
+        List<ApplicationStatus> finalStatuses = Arrays.asList(
+            ApplicationStatus.APPROVED, 
+            ApplicationStatus.REJECTED, 
+            ApplicationStatus.DISBURSED, 
+            ApplicationStatus.ACTIVE, 
+            ApplicationStatus.CLOSED
+        );
+        return ok(applicationRepository.findAllByStatusNotIn(finalStatuses), "Maker queue fetched (all pending applications)");
     }
 
     @GetMapping("/dashboard/checker")

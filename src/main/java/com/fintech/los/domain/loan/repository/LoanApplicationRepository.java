@@ -17,4 +17,5 @@ public interface LoanApplicationRepository extends JpaRepository<LoanApplication
     long countByUserIdAndStatus(Long userId, ApplicationStatus status);
     List<LoanApplication> findByCreatedBy(Long createdBy);
     List<LoanApplication> findAllByStatus(ApplicationStatus status);
+    List<LoanApplication> findAllByStatusNotIn(List<ApplicationStatus> statuses);
 }

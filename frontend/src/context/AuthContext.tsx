@@ -1,10 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+export type AuthUser = {
+  userId: string | number;
+  role: string;
+  name?: string;
+  mobile?: string;
+  email?: string;
+  customerId?: string;
+};
+
 interface AuthContextType {
-  user: any;
+  user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (token: string, user: any) => void;
+  login: (token: string, user: AuthUser) => void;
   logout: () => void;
   isAuthenticated: boolean;
   userRole: string | null;
@@ -13,7 +22,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(false);
   }, []);
 
-  const login = (newToken: string, userData: any) => {
+  const login = (newToken: string, userData: AuthUser) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(userData));
     setToken(newToken);

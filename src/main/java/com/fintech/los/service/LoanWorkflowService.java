@@ -265,7 +265,7 @@ public class LoanWorkflowService {
         c.setUpdatedAt(LocalDateTime.now());
 
         app.setStatus(c.getFinalDecision() == Decision.APPROVED ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED);
-        app.setAllowedStage(6); // Move to Offer
+        app.setAllowedStage(7); // Move to Offer
         app.setStage("STAGE_05");
         if (c.getFinalDecision() == Decision.APPROVED) {
             app.setSanctionedAmount(app.getRequestedAmount());

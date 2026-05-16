@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, Filter, Eye, Compass, ShoppingBag, 
+  CheckCircle, XCircle, RotateCcw, MessageSquare, 
+  Clock, ArrowRight, BarChart2, Plus, FileText, 
+  DollarSign, TrendingUp, LayoutDashboard, Lock, Shield, User, Briefcase, Building, Activity, ShieldCheck
+} from 'lucide-react';
 import api from '../../api';
+import Sidebar from '../PremiumDashboard/Sidebar';
+import { useAuth } from '../../context/AuthContext';
+import { useWorkflow } from '../../context/WorkflowContext';
+import StageProgressStepper from '../WorkflowStages/StageProgressStepper';
+import StageCard from '../WorkflowStages/StageCard';
+import MakerApprovalPanel from '../WorkflowStages/MakerApprovalPanel';
 
 // ── Stage label map ──
 const STAGE_LABELS: Record<string, string> = {
@@ -34,7 +47,26 @@ const STATUS_FLOW = [
 const ApplicationStatus = () => {
   const { applicationId, stageIndex } = useParams();
   const navigate = useNavigate();
-  const activeStage = stageIndex ? parseInt(stageIndex) : null;
+  const { user } = useAuth();
+  const { stages, fetchStages } = useWorkflow();
+  
+  const [viewMode, setViewMode] = useState<'USER' | 'MAKER'>('USER');
+  const isMaker = user?.role === 'ADMIN' || user?.role === 'MAKER' || user?.role === 'LOAN_OFFICER';
+
+  const activeStageId = stageIndex ? parseInt(stageIndex) : 1;
+  const activeStage = stages.find(s => s.id === activeStageId) || stages[0];
+
+  useEffect(() => {
+    if (applicationId) {
+      fetchStages(applicationId);
+    }
+  }, [applicationId, fetchStages]);
+
+  useEffect(() => {
+    if (isMaker && viewMode === 'USER') {
+      // Potentially stay in user view or auto-switch
+    }
+  }, [isMaker, viewMode]);
 
   const [application, setApplication] = useState<any>(null);
   const [kycDetails, setKycDetails] = useState<any>(null);
@@ -71,9 +103,6 @@ const ApplicationStatus = () => {
 
   // Disbursement form
   const [disbForm, setDisbForm] = useState({ bankAccount: '', ifsc: '' });
-
-  // Agreement consent
-  const [agreementConsent, setAgreementConsent] = useState(false);
 
   // View state: Track which stage "page" is currently selected
 
@@ -143,16 +172,13 @@ const ApplicationStatus = () => {
   const maxAccessibleStage = application?.allowedStage || 1;
 
   useEffect(() => {
-    // Redirect logic: If no stage specified, or if accessing a locked stage
+    // Redirect logic: If no stage specified, default to maxAccessibleStage
     if (!loading && application) {
       if (!stageIndex) {
         navigate(`/application/${applicationId}/${maxAccessibleStage}`, { replace: true });
-      } else if (activeStage && activeStage > maxAccessibleStage) {
-        // User tried to access a future stage manually via URL
-        navigate(`/application/${applicationId}/${maxAccessibleStage}`, { replace: true });
       }
     }
-  }, [loading, application, stageIndex, activeStage, maxAccessibleStage, applicationId, navigate]);
+  }, [loading, application, stageIndex, maxAccessibleStage, applicationId, navigate]);
 
   // ── Stage 03: KYC ──
   const handleNextKycStep = () => {
@@ -493,6 +519,33 @@ const ApplicationStatus = () => {
 
   // 7.5 Optional Insurance Calculation (e.g. 1.5% of principal)
   const simulatedInsurancePremium = insuranceOptIn ? Math.round(principal * 0.015) : 0;
+
+  const AwaitingAuthorizationView = ({ stageNum }: { stageNum: number }) => (
+    <div className="bg-[#2a2a32] border border-white/5 p-10 rounded-[40px] text-center">
+      <div className="w-24 h-24 bg-amber-500/10 rounded-[32px] flex items-center justify-center mx-auto mb-6 text-amber-400">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+        >
+          <Clock size={48} />
+        </motion.div>
+      </div>
+      <h3 className="text-2xl font-black text-white mb-4">Awaiting Authorization</h3>
+      <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium leading-relaxed">
+        Our Maker Officer is currently reviewing your loan application details for <span className="text-amber-400">Stage {stageNum}</span>. 
+        You will be notified once the application is approved for the next stage.
+      </p>
+      <div className="flex justify-center gap-4">
+        <button 
+          onClick={fetchFullDetails}
+          className="px-8 py-4 bg-[#1e1e24] text-white rounded-2xl font-black text-xs uppercase tracking-widest border border-white/5 hover:bg-[#16161a] transition-all flex items-center gap-2"
+        >
+          <RotateCcw size={16} />
+          Check Status
+        </button>
+      </div>
+    </div>
+  );
   const totalCostOfLoan = totalInterest + (offerDetails?.processingFee || 0) + simulatedInsurancePremium;
   const finalDisbursement = principal - (offerDetails?.processingFee || 0) - simulatedInsurancePremium;
 
@@ -507,1533 +560,1287 @@ const ApplicationStatus = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
-        <button onClick={() => navigate('/dashboard')} className="mb-6 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-          ← Back to Dashboard
-        </button>
+    <div className="flex bg-[#0f0f12] min-h-screen font-['Inter',sans-serif] text-gray-300 overflow-hidden">
+      <Sidebar activeView="queue" onViewChange={() => navigate('/dashboard')} />
+
+      <main className="flex-1 p-10 overflow-y-auto">
+        <header className="flex justify-between items-center mb-12 relative">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <button 
+                onClick={() => navigate('/dashboard')}
+                className="p-2 bg-[#1e1e24] rounded-xl shadow-lg text-gray-500 hover:text-white transition-colors"
+              >
+                <ArrowRight size={20} className="rotate-180" />
+              </button>
+              <span className="text-gray-500 font-medium">Back to Dashboard</span>
+            </div>
+            <motion.h1 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-4xl font-black text-white mb-1"
+            >
+              Application Workflow
+            </motion.h1>
+            <p className="text-gray-500 font-medium">
+              ID: <span className="text-indigo-400 font-bold">#{applicationId?.substring(0, 8)}</span> • {application?.fullName}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <p className="text-xs font-bold text-gray-500 uppercase mb-1">Current Progress</p>
+              <div className="flex items-center gap-3">
+                <div className="h-1.5 w-32 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${((currentStepIndex + 1) / 10) * 100}%` }}
+                    className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                  />
+                </div>
+                <span className="text-sm font-black text-white">{Math.round(((currentStepIndex + 1) / 10) * 100)}%</span>
+              </div>
+            </div>
+          </div>
+        </header>
 
         {/* Alerts */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-            <button onClick={() => setError('')} className="float-right font-bold">×</button>
-          </div>
-        )}
-        {actionSuccess && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-6">
-            ✅ {actionSuccess}
-            <button onClick={() => setActionSuccess('')} className="float-right font-bold">×</button>
-          </div>
-        )}
-
-        {/* Header + Status */}
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Application Status</h1>
-              <p className="text-gray-500 font-medium">Application ID: <span className="text-indigo-600 font-bold">#{applicationId?.substring(0, 8)}</span></p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Current Progress</p>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-32 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-600 transition-all duration-1000" style={{ width: `${((currentStepIndex + 1) / 8) * 100}%` }}></div>
-                </div>
-                <span className="text-sm font-black text-indigo-700">{Math.round(((currentStepIndex + 1) / 8) * 100)}%</span>
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-6 py-4 rounded-3xl mb-8 flex justify-between items-center"
+            >
+              <div className="flex items-center gap-3">
+                <XCircle size={20} />
+                <span className="font-medium">{error}</span>
               </div>
-            </div>
-          </div>
+              <button onClick={() => setError('')} className="text-rose-400/50 hover:text-rose-400">
+                <XCircle size={20} />
+              </button>
+            </motion.div>
+          )}
+          {actionSuccess && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-6 py-4 rounded-3xl mb-8 flex justify-between items-center"
+            >
+              <div className="flex items-center gap-3">
+                <CheckCircle size={20} />
+                <span className="font-medium">{actionSuccess}</span>
+              </div>
+              <button onClick={() => setActionSuccess('')} className="text-emerald-400/50 hover:text-emerald-400">
+                <XCircle size={20} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-          {/* Timeline */}
-          <div className="mb-12">
-            <div className="flex items-center justify-between relative px-2">
-              {/* Background Line */}
-              <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200 -z-0"></div>
-              <div 
-                className="absolute top-5 left-0 h-0.5 bg-indigo-600 transition-all duration-1000 -z-0" 
-                style={{ width: `${(currentStepIndex / 7) * 100}%` }}
-              ></div>
+        {/* Timeline Navigation */}
+        <div className="bg-[#1e1e24] p-8 rounded-[40px] border border-white/5 shadow-xl mb-12">
+          <div className="flex items-center justify-between relative px-4">
+            {/* Progress Line */}
+            <div className="absolute top-5 left-0 w-full h-0.5 bg-white/5 -z-0"></div>
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${(currentStepIndex / 9) * 100}%` }}
+              className="absolute top-5 left-0 h-0.5 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] -z-0"
+            />
 
-              {STATUS_FLOW.map((step, index) => {
-                const stepNumber = index + 1;
-                const isSelected = activeStage === stepNumber;
-                const isCompleted = index < currentStepIndex;
-                const isCurrent = index === currentStepIndex;
-                const isLocked = stepNumber > maxAccessibleStage;
+            {STATUS_FLOW.map((step, index) => {
+              const stepNumber = index + 1;
+              const isSelected = activeStageId === stepNumber;
+              const isApproved = stepNumber <= maxAccessibleStage;
+              const isLocked = stepNumber > maxAccessibleStage + 1;
+              const isPendingCurrent = stepNumber === maxAccessibleStage + 1;
 
-                return (
-                  <div 
-                    key={step} 
-                    className={`flex flex-col items-center flex-1 transition-all duration-300 ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:scale-105'} group relative z-10`}
-                    onClick={() => {
-                      if (!isLocked) {
-                        navigate(`/application/${applicationId}/${stepNumber}`);
-                      }
-                    }}
+              return (
+                <div 
+                  key={step} 
+                  className="flex flex-col items-center flex-1 cursor-pointer group relative z-10"
+                  onClick={() => navigate(`/application/${applicationId}/${stepNumber}`)}
+                >
+                  <motion.div
+                    whileHover={{ scale: 1.1 }}
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold mb-3 transition-all duration-300 ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-[0_0_20px_rgba(79,70,229,0.4)]'
+                        : isApproved
+                        ? 'bg-[#2a2a32] text-emerald-400 border border-emerald-500/30'
+                        : isPendingCurrent
+                        ? 'bg-[#2a2a32] text-amber-400 border border-amber-500/30 animate-pulse'
+                        : 'bg-[#16161a] text-gray-600 border border-white/5'
+                    }`}
                   >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-all duration-300 ${
-                        isSelected
-                          ? 'bg-white border-4 border-indigo-600 text-indigo-700 shadow-xl scale-125'
-                          : isCompleted
-                          ? 'bg-indigo-600 text-white'
-                          : isCurrent
-                          ? 'bg-indigo-100 border-2 border-indigo-400 text-indigo-700'
-                          : 'bg-white border-2 border-gray-200 text-gray-400'
-                      }`}
-                    >
-                      {isLocked ? '🔒' : isCompleted ? '✓' : stepNumber}
-                    </div>
-                    <p className={`text-[10px] text-center w-20 leading-tight transition-all duration-300 ${isSelected ? 'font-black text-indigo-900 scale-110' : isLocked ? 'text-gray-400 font-normal' : 'text-gray-500 font-medium'}`}>
-                      {STAGE_LABELS[step]?.split(' ').map((word, i) => <span key={i} className="block">{word}</span>)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Loan Summary */}
-          <div className="grid grid-cols-4 gap-6 mb-4">
-            <div>
-              <p className="text-sm text-gray-600">Loan Amount</p>
-              <p className="text-2xl font-bold text-gray-800">₹{application?.requestedAmount?.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Tenure</p>
-              <p className="text-2xl font-bold text-gray-800">{application?.tenureMonths} months</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Purpose</p>
-              <p className="text-lg text-gray-800">{application?.loanPurpose}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Stage</p>
-              <p className="text-lg text-gray-800">{application?.stage}</p>
-            </div>
+                    {isApproved ? <CheckCircle size={18} /> : isLocked ? <Lock size={14} /> : stepNumber}
+                  </motion.div>
+                  <p className={`text-[10px] font-black uppercase tracking-widest text-center transition-all duration-300 ${
+                    isSelected ? 'text-white' : isApproved ? 'text-emerald-500/60' : 'text-gray-500'
+                  }`}>
+                    {STAGE_LABELS[step]?.split(' ').map((word, i) => <span key={i} className="block leading-tight">{word}</span>)}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════
-            STAGE 01: APPLICATION SUMMARY
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 1 && (
-          <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">1</span>
-              Application Initiated
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Borrower Name</p>
-                  <p className="text-lg font-bold text-gray-800">{application?.fullName}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Requested Loan</p>
-                  <p className="text-lg font-bold text-gray-800">₹{application?.requestedAmount?.toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Employment Type</p>
-                  <p className="text-lg font-bold text-gray-800">{application?.employmentType}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Submission Date</p>
-                  <p className="text-lg font-bold text-gray-800">{new Date(application?.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-8 pt-6 border-t flex justify-between items-center">
-              {maxAccessibleStage < 2 ? (
-                <p className="text-sm text-amber-600 font-semibold flex items-center gap-2">
-                  <span className="animate-pulse">⏳</span> Waiting for Maker to verify your application details...
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-500">Your application has been received and approved for processing. Please proceed to the next step.</p>
-                  <button 
-                    onClick={() => navigate(`/application/${applicationId}/2`)}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                  >
-                    Continue →
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STAGE 02: PENDING MAKER REVIEW
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 2 && (
-          <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">2</span>
-              Pending Maker Review
-            </h2>
-            <div className="bg-amber-50 border border-amber-200 p-6 rounded-xl">
-              <div className="flex items-center gap-4 text-amber-800">
-                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-2xl animate-pulse">⏳</div>
-                <div>
-                  <p className="font-bold text-lg">Awaiting Authorization</p>
-                  <p className="text-sm opacity-90">Our Maker Officer is currently reviewing your loan application details. You will be notified once the application is approved for the next stage.</p>
-                </div>
-              </div>
-              {maxAccessibleStage >= 3 && (
-                <button 
-                  onClick={() => navigate(`/application/${applicationId}/3`)}
-                  className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-md"
-                >
-                  Proceed to Maker Approval Stage
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STAGE 03: MAKER APPROVED
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 3 && (
-          <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">3</span>
-              Maker Approved
-            </h2>
-            <div className="bg-green-50 border border-green-200 p-6 rounded-xl">
-              <div className="flex items-center gap-4 text-green-800">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-2xl">✓</div>
-                <div>
-                  <p className="font-bold text-lg">Authorization Successful</p>
-                  <p className="text-sm opacity-90">Your application has been successfully authorized by the Maker Officer. You can now proceed with KYC and Document verification.</p>
-                </div>
-              </div>
-              {maxAccessibleStage >= 4 ? (
-                <button 
-                  onClick={() => navigate(`/application/${applicationId}/4`)}
-                  className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-md"
-                >
-                  Proceed to KYC Verification
-                </button>
-              ) : (
-                <p className="mt-4 text-sm text-amber-600 font-semibold italic">
-                  Waiting for Maker to grant permission for KYC stage...
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STAGE 04: KYC VERIFICATION
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 4 && (
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">4</span>
-            KYC Verification
-            {kycDetails && (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                ✓ Verified
-              </span>
-            )}
-          </h2>
-
-          {kycDetails ? (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">PAN</p>
-                <p className="font-semibold text-gray-800">{kycDetails.pan}</p>
-                <p className={`text-xs mt-1 ${kycDetails.panVerified ? 'text-green-600' : 'text-red-600'}`}>
-                  {kycDetails.panVerified ? '✓ Verified' : '✗ Not verified'}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">Aadhaar</p>
-                <p className="font-semibold text-gray-800">{kycDetails.aadhaarToken}</p>
-                <p className={`text-xs mt-1 ${kycDetails.aadhaarVerified ? 'text-green-600' : 'text-red-600'}`}>
-                  {kycDetails.aadhaarVerified ? '✓ Verified' : '✗ Not verified'}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs text-gray-500 mb-1">CKYC Status</p>
-                <p className="font-semibold text-gray-800">{kycDetails.ckycFound ? 'Found in CKYC' : 'Not in CKYC'}</p>
-                <div className="flex gap-3 mt-1">
-                  <p className={`text-xs ${kycDetails.fraudFlag ? 'text-red-600' : 'text-green-600'}`}>
-                    Fraud: {kycDetails.fraudFlag ? '⚠ Flagged' : '✓ Clear'}
-                  </p>
-                  <p className={`text-xs ${kycDetails.amlFlag ? 'text-red-600' : 'text-green-600'}`}>
-                    AML: {kycDetails.amlFlag ? '⚠ Flagged' : '✓ Clear'}
-                  </p>
-                </div>
-              </div>
-              {kycDetails.videoKycRequired && (
-                <div className="col-span-3 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded text-sm">
-                  ⚠ Video KYC is required for this loan amount
-                </div>
-              )}
-            </div>
-          ) : (currentStatus === 'MAKER_CHECKED' || currentStatus === 'SUBMITTED' || currentStatus === 'DRAFT') ? (
-            <div className="space-y-6">
-              <p className="text-sm text-gray-600">
-                Complete your Know Your Customer (KYC) verification. This involves verifying your identity against government databases.
-              </p>
-
-              {/* Progress indicator for KYC */}
-              <div className="flex items-center justify-between mb-6">
-                {[
-                  { step: 1, label: 'PAN' },
-                  { step: 2, label: 'Aadhaar' },
-                  { step: 3, label: 'OTP' },
-                  { step: 4, label: 'System Checks' }
-                ].map((s) => (
-                  <div key={s.step} className="flex flex-col items-center flex-1">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-1 ${kycStep >= s.step ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                      {kycStep > s.step ? '✓' : s.step}
-                    </div>
-                    <span className="text-xs text-gray-500">{s.label}</span>
+        {/* Content Area */}
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Loan Quick Summary Card */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Loan Amount', value: `₹${application?.requestedAmount?.toLocaleString()}`, icon: DollarSign, color: 'text-indigo-400' },
+                { label: 'Tenure', value: `${application?.tenureMonths} Months`, icon: Clock, color: 'text-amber-400' },
+                { label: 'Purpose', value: application?.loanPurpose, icon: ShoppingBag, color: 'text-emerald-400' },
+                { label: 'Current Stage', value: STAGE_LABELS[application?.status || 'DRAFT'], icon: Activity, color: 'text-rose-400' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-[#1e1e24] p-5 rounded-[24px] border border-white/5 flex items-center gap-4">
+                  <div className={`p-3 bg-black/20 rounded-xl ${stat.color}`}>
+                    <stat.icon size={20} />
                   </div>
-                ))}
-              </div>
-
-              {simulatedKycAction && (
-                <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded flex items-center gap-3">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
-                  <span className="text-sm">{simulatedKycAction}</span>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-0.5">{stat.label}</p>
+                    <p className="text-sm font-bold text-white truncate">{stat.value}</p>
+                  </div>
                 </div>
-              )}
+              ))}
+            </div>
 
-              {!simulatedKycAction && (
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                  {kycStep === 1 && (
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 4.1: PAN Verification</h3>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Enter PAN Number</label>
-                        <input
-                          type="text"
-                          value={kycForm.pan}
-                          onChange={(e) => setKycForm({ ...kycForm, pan: e.target.value.toUpperCase() })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-sm"
-                          placeholder="ABCDE1234F"
-                          maxLength={10}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">We will verify your name with the Income Tax Department.</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {kycStep === 2 && (
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 4.2: Aadhaar eKYC</h3>
-                      <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded text-sm inline-block mb-2">
-                        ✓ PAN Verified Successfully
+            {/* Stage Content */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeStageId}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-[#1e1e24] rounded-[32px] border border-white/5 shadow-xl overflow-hidden"
+              >
+                {/* ═══════════════════════════════════════════════
+                    STAGE 01: APPLICATION SUMMARY
+                ═══════════════════════════════════════════════ */}
+                {activeStageId === 1 && (
+                  <div className="p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="p-3.5 bg-indigo-500/10 text-indigo-400 rounded-2xl">
+                        <FileText size={22} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Enter Aadhaar Last 4 Digits</label>
-                        <input
-                          type="text"
-                          value={kycForm.aadhaarLast4}
-                          onChange={(e) => setKycForm({ ...kycForm, aadhaarLast4: e.target.value.replace(/\D/g, '') })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-sm"
-                          placeholder="1234"
-                          maxLength={4}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">An OTP will be sent to your Aadhaar-linked mobile number.</p>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Application Initiated</h2>
+                        <p className="text-gray-500 font-medium text-xs">Review your submitted application details</p>
                       </div>
                     </div>
-                  )}
 
-                  {kycStep === 3 && (
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 4.3: Enter Aadhaar OTP</h3>
-                      <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-2 rounded text-sm mb-4">
-                        ℹ OTP sent to mobile linked with Aadhaar ending in {kycForm.aadhaarLast4}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Enter 6-digit OTP</label>
-                        <input
-                          type="text"
-                          value={kycForm.otp}
-                          onChange={(e) => setKycForm({ ...kycForm, otp: e.target.value.replace(/\D/g, '') })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-sm tracking-widest text-lg"
-                          placeholder="000000"
-                          maxLength={6}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {kycStep === 4 && (
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-800">Step 4.4 - 4.8: Processing Compliance Checks</h3>
-                      <div className="space-y-2">
-                        <p className="text-sm text-gray-700 flex items-center gap-2"><span>⏳</span> Querying CKYC Registry...</p>
-                        <p className="text-sm text-gray-700 flex items-center gap-2"><span>⏳</span> Cross-verifying address...</p>
-                        {application?.requestedAmount > 200000 && (
-                          <p className="text-sm text-indigo-700 flex items-center gap-2 font-semibold"><span>📷</span> Setting up Video KYC session...</p>
-                        )}
-                        <p className="text-sm text-gray-700 flex items-center gap-2"><span>⏳</span> Fraud & AML Screening against watchlists...</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!simulatedKycAction && (
-                <div className="flex justify-end pt-4">
-                  <button
-                    onClick={handleNextKycStep}
-                    disabled={
-                      (kycStep === 1 && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(kycForm.pan)) ||
-                      (kycStep === 2 && !/^[0-9]{4}$/.test(kycForm.aadhaarLast4)) ||
-                      (kycStep === 3 && kycForm.otp.length !== 6)
-                    }
-                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg"
-                  >
-                    {kycStep === 4 ? 'Complete KYC' : 'Next Step'}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">KYC not yet initiated</p>
-          )}
-          {kycDetails && (
-            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
-              {maxAccessibleStage >= 5 ? (
-                <>
-                  <p className="text-sm text-gray-500">KYC verified. Please proceed to document upload.</p>
-                  <button 
-                    onClick={() => navigate(`/application/${applicationId}/5`)}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                  >
-                    Next: Document Upload →
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-amber-600 font-semibold italic">
-                  Waiting for Maker to grant permission for Document Upload stage...
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STAGE 05: DOCUMENT UPLOAD & VERIFICATION
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 5 && (
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">5</span>
-            Document Upload & Verification
-            {currentStatus !== 'DRAFT' && documents.length > 0 && documents.every((d: any) => d.verificationStatus === 'VERIFIED') && (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                ✓ All Documents Verified
-              </span>
-            )}
-          </h2>
-
-          {/* Document list */}
-          {documents.length > 0 && (
-            <div className="mb-6">
-              <table className="w-full mb-4">
-                <thead>
-                  <tr className="border-b-2 border-gray-200">
-                    <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700">Type</th>
-                    <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700">File</th>
-                    <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700">Quality Score</th>
-                    <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {documents.map((doc: any) => (
-                    <tr key={doc.id} className="border-b border-gray-100">
-                      <td className="py-2 px-3 text-sm font-medium text-gray-800">{doc.documentType}</td>
-                      <td className="py-2 px-3 text-sm text-gray-600">{doc.storageUrl?.split('/').pop()}</td>
-                      <td className="py-2 px-3 text-sm text-gray-600">
-                        {doc.qualityScore ? `${(parseFloat(doc.qualityScore) * 100).toFixed(0)}%` : 'N/A'}
-                      </td>
-                      <td className="py-2 px-3">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${doc.verificationStatus === 'VERIFIED'
-                              ? 'bg-green-100 text-green-800'
-                              : doc.verificationStatus === 'FAILED'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}
-                        >
-                          {doc.verificationStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Simulation Action Bar */}
-              {simulatedDocAction && (
-                <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-lg mb-4">
-                  <div className="flex items-center gap-3 text-indigo-700 font-medium mb-3">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-700"></div>
-                    {simulatedDocAction}
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-indigo-600 h-2 rounded-full transition-all duration-500" style={{ width: `${(docVerifyStep / 5) * 100}%` }}></div>
-                  </div>
-                </div>
-              )}
-
-              {/* Auto-verify button */}
-              {!simulatedDocAction && documents.some((d: any) => d.verificationStatus === 'PENDING') && (
-                <button
-                  onClick={handleAutoVerifyDocs}
-                  disabled={actionLoading}
-                  className="px-6 py-3 w-full sm:w-auto bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg font-medium shadow-sm flex items-center justify-center gap-2"
-                >
-                  {actionLoading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  ) : (
-                    <><span>✓</span> Start AI Document Verification (OCR)</>
-                  )}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Upload form & Checklist — available when KYC is verified or draft */}
-          {(currentStatus === 'DRAFT' || currentStatus === 'KYC_VERIFIED' || currentStatus === 'MAKER_CHECKED') && (
-            <div className="border-t pt-6 mt-4">
-              <div className="mb-4">
-                <h3 className="font-semibold text-gray-800 text-lg flex items-center gap-2">
-                  <span>📋</span> Document Checklist Generated
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Based on your employment profile <strong>({application?.companyName ? 'Salaried Applicant' : 'Self-Employed / Business Owner'})</strong>, here is your required document checklist.
-                  Accepted formats: PDF, JPG, PNG (Max size: 5MB).
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 mb-6">
-                {[
-                  { category: 'Identity Proof', reqSal: 'Aadhaar Card (via eKYC) + PAN Card', reqSelf: 'Aadhaar Card (via eKYC) + PAN Card', key: 'IDENTITY_PROOF' },
-                  { category: 'Address Proof', reqSal: 'Aadhaar / Utility Bill / Passport', reqSelf: 'Aadhaar / Utility Bill / Property Tax Receipt', key: 'ADDRESS_PROOF' },
-                  { category: 'Income Proof', reqSal: 'Last 3 months Salary Slips', reqSelf: 'Last 2 years ITR with computation / CA Certified P&L', key: 'INCOME_PROOF' },
-                  { category: 'Employment Proof', reqSal: 'Offer Letter + Latest Appointment Letter', reqSelf: 'GST Registration / MSME Certificate', key: 'EMPLOYMENT_PROOF' },
-                  { category: 'Bank Statement', reqSal: 'Last 6 months (primary salary account)', reqSelf: 'Last 12 months (primary business account)', key: 'BANK_STATEMENT' },
-                  { category: 'Tax Documents', reqSal: 'Latest Form 16 (Part A + Part B)', reqSelf: 'Not applicable — ITR Acknowledgement instead', key: 'TAX_DOCUMENT' },
-                  { category: 'Photograph', reqSal: 'Recent passport-size photo', reqSelf: 'Recent passport-size photo', key: 'PHOTO' },
-                ].map(docType => {
-                  const isUploaded = documents.some((d: any) => d.documentType === docType.key);
-                  return (
-                    <div key={docType.key} className="flex items-center justify-between bg-gray-50 border border-gray-200 p-4 rounded-lg hover:shadow-sm transition-shadow">
-                      <div>
-                        <p className="font-semibold text-gray-800">{docType.category}</p>
-                        <p className="text-xs text-gray-500 mt-1"><span className="font-medium text-gray-700">Required:</span> {application?.companyName ? docType.reqSal : docType.reqSelf}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        {isUploaded ? (
-                          <span className="text-sm font-semibold text-green-700 bg-green-100 px-3 py-1 rounded-full flex items-center gap-1">
-                            <span>✓</span> Uploaded
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="file"
-                              onChange={(e) => {
-                                if (e.target.files?.[0]) {
-                                  setDocForm({ documentType: docType.key, fileName: e.target.files[0].name });
-                                }
-                              }}
-                              className="text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                              accept=".pdf,.jpg,.png"
-                            />
-                            {docForm.documentType === docType.key && (
-                              <button
-                                onClick={handleDocumentUpload}
-                                disabled={actionLoading}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm transition-colors"
-                              >
-                                {actionLoading ? 'Uploading...' : 'Upload'}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Next Stage Button */}
-          {documents.length > 0 && (
-            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
-              <p className="text-sm text-gray-500 italic">
-                {currentStatus === 'KYC_VERIFIED' 
-                  ? 'Please finalize your documents to unlock the Credit Assessment stage.' 
-                  : 'Documents submitted. You can now proceed.'}
-              </p>
-              {currentStatus === 'KYC_VERIFIED' ? (
-                <button 
-                  onClick={handleAutoVerifyDocs}
-                  disabled={actionLoading}
-                  className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg transition-all flex items-center gap-2"
-                >
-                  {actionLoading ? 'Processing...' : 'Finalize & Submit Documents 🔓'}
-                </button>
-              ) : (
-                <button 
-                  onClick={() => navigate(`/application/${applicationId}/4`)}
-                  className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg transition-all flex items-center gap-2"
-                >
-                  Next: Credit Assessment →
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STAGE 06: CREDIT ASSESSMENT & UNDERWRITING
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 6 && (
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">6</span>
-            Credit Assessment & Underwriting
-            {creditDetails && (
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${creditDetails.finalDecision === 'APPROVED'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-                }`}>
-                {creditDetails.finalDecision}
-              </span>
-            )}
-          </h2>
-
-          {creditDetails ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mt-6">
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl">📊</div>
-                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase">Bureau Score</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-extrabold text-indigo-900">{creditDetails.bureauScore}</p>
-                  <p className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Good</p>
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl">🤖</div>
-                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase">Internal ML Score</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-extrabold text-indigo-900">{creditDetails.internalScore}</p>
-                  <p className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">/1000</p>
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-4xl">🛡️</div>
-                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase">Risk Grade</p>
-                <p className="text-3xl font-extrabold text-indigo-900">{creditDetails.riskGrade}</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase">Policy Check</p>
-                  <p className={`font-bold flex items-center gap-2 ${creditDetails.policyPassed ? 'text-green-600' : 'text-red-600'}`}>
-                    {creditDetails.policyPassed ? <><span className="text-xl">✓</span> Passed</> : <><span className="text-xl">✗</span> Failed</>}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase">STP Eligible</p>
-                  <p className={`font-bold flex items-center gap-2 ${creditDetails.stpEligible ? 'text-green-600' : 'text-orange-600'}`}>
-                    {creditDetails.stpEligible ? <><span className="text-xl">⚡</span> Auto-Approved</> : <><span className="text-xl">⏳</span> Manual Review</>}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm">
-                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase">Decision Reason</p>
-                <p className="text-sm font-medium text-gray-800">{creditDetails.decisionReason}</p>
-              </div>
-            </div>
-          ) : (currentStatus === 'KYC_VERIFIED' || currentStatus === 'DOCS_COMPLETE' || currentStatus === 'MAKER_CHECKED') ? (
-            <div>
-              {/* Simulation Action Bar */}
-              {simulatedCreditAction && (
-                <div className="bg-purple-50 border border-purple-200 p-5 rounded-lg mb-6">
-                  <div className="flex items-center gap-3 text-purple-800 font-medium mb-4 text-lg">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-800"></div>
-                    {simulatedCreditAction}
-                  </div>
-                  <div className="w-full bg-purple-100 rounded-full h-2.5">
-                    <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${(creditVerifyStep / 6) * 100}%` }}></div>
-                  </div>
-                </div>
-              )}
-
-              {!simulatedCreditAction && (
-                <div className="border-t pt-4">
-                  <p className="text-gray-600 mb-6 bg-gray-50 p-4 rounded border border-gray-100">
-                    <strong className="text-gray-800">Ready for Underwriting:</strong> The system will now run your application through our ML credit scoring engine, fetch bureau reports (CIBIL/Experian), check negative policies, calculate DTI, and attempt a Straight-Through Processing (STP) auto-approval.
-                  </p>
-                  <button
-                    onClick={handleCreditAssessment}
-                    disabled={actionLoading}
-                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-medium rounded-lg shadow-sm flex items-center gap-2"
-                  >
-                    {actionLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    ) : (
-                      <><span>⚡</span> Run Automated Credit Assessment (STP)</>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">Application must complete KYC and Document Verification first.</p>
-          )}
-          {creditDetails && (
-            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
-              {maxAccessibleStage >= 7 ? (
-                <>
-                  <p className="text-sm text-gray-500">Credit assessment completed. View your offer.</p>
-                  <button 
-                    onClick={() => navigate(`/application/${applicationId}/7`)}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                  >
-                    Next: View Loan Offer →
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-amber-600 font-semibold italic">
-                  Waiting for Maker to grant permission for Loan Offer stage...
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STAGE 07: LOAN OFFER GENERATION
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 7 && (
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">7</span>
-            Loan Offer
-            {offerDetails && (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                ✓ Generated
-              </span>
-            )}
-          </h2>
-
-          {offerDetails ? (
-            <div>
-              <div className="bg-indigo-900 rounded-2xl p-8 mb-6 text-white shadow-lg relative overflow-hidden">
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-800 rounded-full blur-2xl opacity-50"></div>
-
-                <h3 className="text-2xl font-bold mb-6">Your Pre-Approved Loan Offer</h3>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 relative z-10">
-                  <div>
-                    <p className="text-indigo-300 text-sm mb-1 uppercase tracking-wider font-semibold">Net Sanctioned Amount</p>
-                    <p className="text-4xl font-extrabold text-white">₹{principal.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-indigo-300 text-sm mb-1 uppercase tracking-wider font-semibold">Interest Rate (APR)</p>
-                    <p className="text-4xl font-extrabold text-green-400">{annualRate.toFixed(2)}% <span className="text-lg font-medium text-green-200">p.a.</span></p>
-                  </div>
-                  <div>
-                    <p className="text-indigo-300 text-sm mb-1 uppercase tracking-wider font-semibold">Tenure</p>
-                    <p className="text-4xl font-extrabold text-white">{tenure} <span className="text-lg font-medium text-indigo-200">months</span></p>
-                  </div>
-                  <div>
-                    <p className="text-indigo-300 text-sm mb-1 uppercase tracking-wider font-semibold">Monthly EMI</p>
-                    <p className="text-4xl font-extrabold text-white">₹{computedEmi.toLocaleString()}</p>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-indigo-800 grid grid-cols-3 gap-6 relative z-10">
-                  <div>
-                    <p className="text-indigo-300 text-xs uppercase tracking-wider">Processing Fee (+GST)</p>
-                    <p className="text-lg font-semibold">₹{offerDetails.processingFee?.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-indigo-300 text-xs uppercase tracking-wider">Total Interest Payable</p>
-                    <p className="text-lg font-semibold">₹{totalInterest.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-indigo-300 text-xs uppercase tracking-wider">Total Cost of Loan</p>
-                    <p className="text-lg font-semibold">₹{totalCostOfLoan.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Offer Configurator (Step 7.5) */}
-              {currentStatus === 'APPROVED' && !offerDetails.accepted && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-8">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <span>🎛️</span> Customize Your Offer
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <label className="text-sm font-medium text-gray-700">Loan Amount</label>
-                        <span className="text-sm font-bold text-indigo-700">₹{principal.toLocaleString()}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10000"
-                        max={application?.sanctionedAmount || 500000}
-                        step="10000"
-                        value={principal}
-                        onChange={(e) => setOfferAmount(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                      />
-                      <div className="flex justify-between mt-1 text-xs text-gray-500">
-                        <span>₹10,000</span>
-                        <span>Max Eligible: ₹{application?.sanctionedAmount?.toLocaleString()}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <label className="text-sm font-medium text-gray-700">Tenure (Months)</label>
-                        <span className="text-sm font-bold text-indigo-700">{tenure} Months</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="6"
-                        max="60"
-                        step="6"
-                        value={tenure}
-                        onChange={(e) => setOfferTenure(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                      />
-                      <div className="flex justify-between mt-1 text-xs text-gray-500">
-                        <span>6 Months</span>
-                        <span>60 Months</span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-4 text-center">
-                    Note: Changing the loan amount or tenure will dynamically recalculate your EMI and total interest payable. The final offer will be updated upon acceptance.
-                  </p>
-                </div>
-              )}
-
-              {/* Stage 07: Offer Review & Accept/Reject */}
-              {currentStatus === 'APPROVED' && !offerDetails.accepted && (
-                <div className="border-t pt-8 mt-8 border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                    <span className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-indigo-600 text-white text-sm font-bold shadow-sm">7</span>
-                    Offer Review & Digital Acceptance
-                  </h3>
-
-                  {simulatedAcceptanceAction && (
-                    <div className="bg-purple-50 border border-purple-200 p-5 rounded-lg mb-6">
-                      <div className="flex items-center gap-3 text-purple-800 font-medium text-lg">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-800"></div>
-                        {simulatedAcceptanceAction}
-                      </div>
-                    </div>
-                  )}
-
-                  {!simulatedAcceptanceAction && !showOtpModal && (
-                    <div className="space-y-8">
-
-                      {/* Step 7.1 & 7.2: KFS Review and Scroll Gate */}
-                      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-                          <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                            <span>📄</span> Key Facts Statement (KFS)
-                          </h4>
-                          <button className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                            ⬇️ Download PDF
-                          </button>
-                        </div>
-                        <div
-                          className="h-48 overflow-y-scroll p-6 bg-gray-50/50 text-sm text-gray-700 leading-relaxed border-b border-gray-200"
-                          onScroll={handleKfsScroll}
-                        >
-                          <p className="font-semibold mb-2">1. Loan Details</p>
-                          <p>Sanctioned Amount: ₹{principal.toLocaleString()}</p>
-                          <p>Interest Rate (Reducing Balance): {annualRate.toFixed(2)}% p.a.</p>
-                          <p>Tenure: {tenure} Months</p>
-                          <p className="font-semibold mt-4 mb-2">2. Fees & Charges</p>
-                          <p>Processing Fee (+GST): ₹{offerDetails.processingFee?.toLocaleString()}</p>
-                          <p>Optional Insurance Premium: ₹{simulatedInsurancePremium.toLocaleString()}</p>
-                          <p className="font-semibold text-indigo-700 mt-2">Net Disbursement: ₹{finalDisbursement.toLocaleString()}</p>
-                          <p className="font-semibold mt-4 mb-2">3. Repayment & Penalties</p>
-                          <p>Monthly EMI: ₹{computedEmi.toLocaleString()}</p>
-                          <p>Prepayment allowed after 6 EMIs without penalty.</p>
-                          <p>Late payment penalty: 2% per month on the overdue amount.</p>
-                          <p className="mt-8 italic text-center text-gray-500">(Scroll to the bottom to acknowledge)</p>
-                          <div className="h-10"></div> {/* Buffer for scroll */}
-                        </div>
-                        <div className="p-4 bg-white">
-                          <label className={`flex items-start gap-3 cursor-pointer ${!hasScrolledToBottom ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <input
-                              type="checkbox"
-                              checked={kfsAcknowledged}
-                              onChange={(e) => setKfsAcknowledged(e.target.checked)}
-                              className="mt-1 w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                            />
-                            <span className="text-sm text-gray-700 font-medium">
-                              I confirm I have read and understood the Key Facts Statement (KFS) and all material terms of the loan.
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* Step 7.3 & 7.4: Repayment Preferences */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                          <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><span>📅</span> EMI Repayment Date</h4>
-                          <select
-                            value={emiDate}
-                            onChange={(e) => setEmiDate(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5"
-                          >
-                            <option value="1st">1st of every month</option>
-                            <option value="5th">5th of every month</option>
-                            <option value="10th">10th of every month</option>
-                            <option value="15th">15th of every month</option>
-                          </select>
-                          <p className="text-xs text-gray-500 mt-2">First EMI date calculated based on disbursement + cooling-off period.</p>
-                        </div>
-                        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                          <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><span>🏦</span> Repayment Mode</h4>
-                          <select
-                            value={repaymentMode}
-                            onChange={(e) => setRepaymentMode(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5"
-                          >
-                            <option value="NACH">NACH (Auto-debit from bank) - Recommended</option>
-                            <option value="UPI">UPI AutoPay</option>
-                            <option value="PDC">Post-Dated Cheques (PDC)</option>
-                            <option value="SI">Standing Instruction</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Step 7.5: Insurance Opt-in/Opt-out */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 relative overflow-hidden">
-                        <div className="absolute -right-10 -bottom-10 opacity-10 text-9xl">🛡️</div>
-                        <div className="relative z-10">
-                          <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">Loan Protection Insurance (Optional)</h4>
-                          <p className="text-sm text-blue-800 mb-4">Protect your family from the burden of repayment in case of unforeseen events (Life + Disability cover). The premium is deducted from the sanctioned amount.</p>
-                          <label className="flex items-center gap-3 cursor-pointer bg-white/60 p-3 rounded-lg border border-blue-100 hover:bg-white transition-colors">
-                            <input
-                              type="checkbox"
-                              checked={insuranceOptIn}
-                              onChange={(e) => setInsuranceOptIn(e.target.checked)}
-                              className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                            />
-                            <span className="font-medium text-blue-900">
-                              Yes, I want to secure my loan (+₹{Math.round(principal * 0.015).toLocaleString()})
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* Step 7.6: Digital Acceptance Actions */}
-                      <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                        <button
-                          onClick={handleDigitalAcceptance}
-                          disabled={actionLoading || !kfsAcknowledged}
-                          className="flex-1 px-6 py-4 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex justify-center items-center gap-2"
-                        >
-                          {actionLoading ? (
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                          ) : (
-                            <><span>✍️</span> I Accept the Loan Terms</>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setShowRejectConfirm(true)}
-                          disabled={actionLoading}
-                          className="px-6 py-4 bg-white border-2 border-red-200 hover:border-red-600 hover:bg-red-50 text-red-600 rounded-xl font-bold transition-all"
-                        >
-                          Decline Offer
-                        </button>
-                      </div>
-
-                      {showRejectConfirm && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-6 mt-4">
-                          <p className="text-red-800 font-bold mb-4 flex items-center gap-2">
-                            <span>⚠️</span> Are you absolutely sure you want to decline this pre-approved offer?
-                          </p>
-                          <div className="flex gap-4">
-                            <button
-                              onClick={() => handleOfferAcceptance(false)}
-                              disabled={actionLoading}
-                              className="px-6 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-semibold shadow-sm"
-                            >
-                              {actionLoading ? 'Processing...' : 'Yes, Withdraw Application'}
-                            </button>
-                            <button
-                              onClick={() => setShowRejectConfirm(false)}
-                              className="px-6 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-semibold"
-                            >
-                              Keep Offer
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* OTP Modal for Digital Acceptance */}
-                  {showOtpModal && (
-                    <div className="bg-white border-2 border-green-500 rounded-xl p-8 shadow-xl text-center">
-                      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">📱</div>
-                      <h3 className="text-2xl font-bold text-gray-800 mb-2">Digital Consent Required</h3>
-                      <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                        To legally accept the offer of ₹{principal.toLocaleString()}, please enter the 6-digit OTP sent to your registered mobile number.
-                      </p>
-                      <input
-                        type="text"
-                        maxLength={6}
-                        placeholder="••••••"
-                        value={acceptanceOtp}
-                        onChange={(e) => setAcceptanceOtp(e.target.value.replace(/\D/g, ''))}
-                        className="w-48 text-center text-3xl tracking-[0.5em] font-bold py-3 border-b-2 border-gray-300 focus:border-green-500 outline-none mb-8 bg-transparent"
-                      />
-                      <div className="flex justify-center gap-4">
-                        <button
-                          onClick={() => setShowOtpModal(false)}
-                          className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleVerifyAcceptanceOtp}
-                          disabled={acceptanceOtp.length < 6 || actionLoading}
-                          className="px-8 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold rounded-lg shadow-md"
-                        >
-                          Verify & Sign
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {offerDetails.accepted && (
-                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded text-sm mt-2">
-                  ✅ Offer accepted on {offerDetails.acceptedAt ? new Date(offerDetails.acceptedAt).toLocaleString() : 'N/A'}
-                </div>
-              )}
-            </div>
-          ) : currentStatus === 'APPROVED' ? (
-            <div>
-              {/* Simulation Action Bar */}
-              {simulatedOfferAction && (
-                <div className="bg-blue-50 border border-blue-200 p-5 rounded-lg mb-6">
-                  <div className="flex items-center gap-3 text-blue-800 font-medium mb-4 text-lg">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-800"></div>
-                    {simulatedOfferAction}
-                  </div>
-                  <div className="w-full bg-blue-100 rounded-full h-2.5">
-                    <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${(offerGenStep / 5) * 100}%` }}></div>
-                  </div>
-                </div>
-              )}
-
-              {!simulatedOfferAction && (
-                <div className="border-t pt-4">
-                  <p className="text-gray-600 mb-6 bg-gray-50 p-4 rounded border border-gray-100">
-                    <strong className="text-gray-800">Generate Your Personalized Offer:</strong> The pricing engine will now use your Risk Grade to determine the optimal interest rate, calculate processing fees, generate an amortization schedule, and compile your Key Facts Statement (KFS) per RBI guidelines.
-                  </p>
-                  <button
-                    onClick={handleOfferGeneration}
-                    disabled={actionLoading}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg shadow-sm flex items-center gap-2"
-                  >
-                    {actionLoading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    ) : (
-                      <><span>📄</span> Generate Final Loan Offer & KFS</>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">
-              {currentStatus === 'REJECTED' ? 'Application was rejected — no offer available' : 'Offer not yet generated'}
-            </p>
-          )}
-          {offerDetails?.accepted && (
-            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
-              {maxAccessibleStage >= 8 ? (
-                <>
-                  <p className="text-sm text-gray-500">Offer accepted. Proceed to digital agreement.</p>
-                  <button 
-                    onClick={() => navigate(`/application/${applicationId}/8`)}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                  >
-                    Next: Digital Agreement →
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-amber-600 font-semibold italic">
-                  Waiting for Maker to grant permission for Digital Agreement stage...
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════
-            STAGE 08: LEGAL AGREEMENT & SANCTION LETTER
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 8 && (
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm">8</span>
-            Legal Agreement & Execution
-          </h2>
-
-          {currentStatus === 'ACCEPTED' ? (
-            <div className="space-y-6">
-              {simulatedAgreementAction && (
-                <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-lg">
-                  <div className="flex items-center gap-3 text-indigo-800 font-medium text-lg">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-800"></div>
-                    {simulatedAgreementAction}
-                  </div>
-                  {agreementStep > 0 && (
-                    <div className="w-full bg-indigo-100 rounded-full h-2.5 mt-4">
-                      <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${(agreementStep / 3) * 100}%` }}></div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Step 8.1 & 8.2: Document Package Generation */}
-              {!simulatedAgreementAction && agreementStep === 0 && !hasScrolledAgreement && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
-                  <h3 className="font-bold text-gray-800 mb-2">Legal Document Package</h3>
-                  <p className="text-sm text-gray-600 mb-4">The system needs to generate your personalized loan agreement, demand promissory note, and mandatory regulatory disclosures.</p>
-                  <button
-                    onClick={handleAgreementExecution}
-                    disabled={actionLoading}
-                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-md transition-all flex items-center gap-2"
-                  >
-                    {actionLoading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : '📄 Generate Signing Package'}
-                  </button>
-                </div>
-              )}
-
-              {/* Step 8.3: Document Review (Scroll Gate) */}
-              {!simulatedAgreementAction && !showEsignOtpModal && agreementStep === 0 && (hasScrolledAgreement || currentStatus === 'ACCEPTED') && (
-                <div className="space-y-6 animate-fadeIn">
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
-                    <span className="text-xl">ℹ️</span>
-                    <p className="text-sm text-blue-800 font-medium">Please review all documents in the bundle. The eSign button will activate once you've reviewed the entire agreement.</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Document List */}
-                    <div className="lg:col-span-1 space-y-3">
-                      <h4 className="font-bold text-gray-700 text-sm uppercase tracking-wider">Signing Bundle (5 Documents)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
-                        { id: 'LA', name: 'Loan Agreement', size: '1.2 MB' },
-                        { id: 'DPN', name: 'Demand Promissory Note', size: '450 KB' },
-                        { id: 'NACH', name: 'NACH / Auto-Debit Form', size: '600 KB' },
-                        { id: 'SOC', name: 'Schedule of Charges', size: '320 KB' },
-                        { id: 'MITC', name: 'MITC & KFS (Final)', size: '890 KB' }
-                      ].map(doc => (
-                        <div key={doc.id} className="bg-white border border-gray-200 p-3 rounded-lg flex items-center justify-between hover:border-indigo-300 transition-colors cursor-pointer group">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl group-hover:scale-110 transition-transform">📄</span>
-                            <div>
-                              <p className="text-sm font-bold text-gray-800">{doc.name}</p>
-                              <p className="text-xs text-gray-500">{doc.size} • PDF</p>
-                            </div>
+                        { label: 'Borrower Name', value: application?.fullName, icon: User },
+                        { label: 'Requested Loan', value: `₹${application?.requestedAmount?.toLocaleString()}`, icon: DollarSign },
+                        { label: 'Employment Type', value: application?.employmentType, icon: Briefcase },
+                        { label: 'Submission Date', value: application?.createdAt ? new Date(application.createdAt).toLocaleDateString() : 'N/A', icon: Clock },
+                      ].map((field, i) => (
+                        <div key={i} className="bg-[#2a2a32] p-5 rounded-2xl border border-white/5 flex items-center gap-4">
+                          <div className="p-2.5 bg-[#1e1e24] rounded-xl text-gray-400">
+                            <field.icon size={16} />
                           </div>
-                          <span className="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">👁️</span>
+                          <div>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-0.5">{field.label}</p>
+                            <p className="text-base font-bold text-white">{field.value}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
 
-                    {/* PDF Viewer Simulation */}
-                    <div className="lg:col-span-2 bg-gray-800 rounded-xl overflow-hidden flex flex-col shadow-inner border-4 border-gray-700">
-                      <div className="bg-gray-700 p-3 flex justify-between items-center text-white text-xs font-bold">
-                        <span>PREVIEW: LOAN_AGREEMENT_V1.PDF</span>
-                        <div className="flex gap-4">
-                          <span>PAGE 1 OF 12</span>
-                          <span className="cursor-pointer hover:text-indigo-300">⬇️ DOWNLOAD</span>
-                        </div>
-                      </div>
-                      <div
-                        className="h-96 overflow-y-scroll p-8 bg-white"
-                        onScroll={handleAgreementScroll}
-                      >
-                        <div className="max-w-2xl mx-auto space-y-6 text-gray-800 font-serif">
-                          <h1 className="text-2xl font-bold text-center border-b-2 border-black pb-4">LOAN AGREEMENT</h1>
-                          <p className="text-sm">This Loan Agreement ("Agreement") is made on this day {new Date().toLocaleDateString()} between:</p>
-                          <p className="text-sm font-bold">LENDER: FINTECH GLOBAL NBFC SERVICES LTD.</p>
-                          <p className="text-sm font-bold uppercase">BORROWER: {application?.fullName}</p>
-
-                          <div className="grid grid-cols-2 gap-4 border p-4 bg-gray-50 font-sans text-xs">
-                            <div><strong>SANCTIONED AMOUNT:</strong> ₹{application?.sanctionedAmount?.toLocaleString()}</div>
-                            <div><strong>INTEREST RATE:</strong> {application?.annualInterestRate}% p.a.</div>
-                            <div><strong>TENURE:</strong> {application?.requestedTenure} Months</div>
-                            <div><strong>MONTHLY EMI:</strong> ₹{offerDetails?.emi?.toLocaleString()}</div>
+                    <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-center">
+                      {maxAccessibleStage < 2 ? (
+                        isMaker ? (
+                          <div className="w-full mt-4">
+                            <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
                           </div>
-
-                          <div className="space-y-4 text-xs leading-relaxed">
-                            <p><strong>1. REPAYMENT:</strong> The Borrower shall repay the Loan to the Lender in Equated Monthly Installments (EMIs) as per the schedule attached hereto.</p>
-                            <p><strong>2. DEFAULT:</strong> In the event of default in payment of any EMI, the Borrower shall be liable to pay penal interest at the rate of 2% per month.</p>
-                            <p><strong>3. PREPAYMENT:</strong> The Borrower may prepay the loan after 6 successful EMI payments without any additional charges.</p>
-                            <p><strong>4. JURISDICTION:</strong> This Agreement shall be governed by the laws of India and courts at Mumbai shall have exclusive jurisdiction.</p>
+                        ) : (
+                          <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-5 py-3 rounded-xl border border-amber-400/20">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <p className="text-xs font-bold">Awaiting Maker Verification...</p>
                           </div>
-
-                          <div className="h-64 flex items-end justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-400 italic">
-                            {hasScrolledAgreement ? (
-                              <div className="text-center">
-                                <p className="text-green-600 font-bold not-italic">✓ End of Document Reached</p>
-                                <p className="text-xs">Scroll capture successful at {new Date().toLocaleTimeString()}</p>
-                              </div>
-                            ) : (
-                              'Scroll to the end to sign...'
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        )
+                      ) : (
+                        <>
+                          <p className="text-xs text-gray-500 max-w-md font-medium">Your application has been received and approved for processing. Please proceed to the next step.</p>
+                          <button 
+                            onClick={() => navigate(`/application/${applicationId}/2`)}
+                            className="flex items-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all group"
+                          >
+                            <span>Continue to Review</span>
+                            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
+                )}
 
-                  {/* Step 8.4: Aadhaar eSign Action */}
-                  <div className="flex justify-center pt-4">
-                    <button
-                      onClick={handleAadhaarEsign}
-                      disabled={!hasScrolledAgreement || actionLoading}
-                      className="px-12 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold rounded-xl shadow-xl hover:shadow-2xl transition-all flex items-center gap-3 text-lg group"
-                    >
-                      <span className="text-2xl group-hover:rotate-12 transition-transform">✍️</span>
-                      E-SIGN DOCUMENTS (AADHAAR OTP)
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Aadhaar eSign OTP Modal */}
-              {showEsignOtpModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center animate-scaleIn">
-                    <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <img src="https://upload.wikimedia.org/wikipedia/en/thumb/c/cf/Aadhaar_Logo.svg/1200px-Aadhaar_Logo.svg.png" alt="Aadhaar" className="w-12 h-12" />
+                {/* ═══════════════════════════════════════════════
+                    STAGE 02: PENDING MAKER REVIEW
+                ═══════════════════════════════════════════════ */}
+                {activeStageId === 2 && (
+                  <div className="p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="p-3.5 bg-amber-500/10 text-amber-400 rounded-2xl">
+                        <Clock size={22} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Pending Maker Review</h2>
+                        <p className="text-gray-500 font-medium text-xs">Internal verification in progress</p>
+                      </div>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-800 mb-2">Aadhaar eSign Authentication</h3>
-                    <p className="text-gray-600 mb-8">
-                      An OTP has been sent to the mobile number linked with your Aadhaar (ending in **{kycDetails?.aadhaarLast4 || 'XXXX'}).
-                    </p>
 
-                    <div className="flex flex-col gap-6">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        placeholder="ENTER 6-DIGIT OTP"
-                        value={esignOtp}
-                        onChange={(e) => setEsignOtp(e.target.value.replace(/\D/g, ''))}
-                        className="w-full text-center text-2xl tracking-[0.3em] font-bold py-4 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none transition-colors"
-                      />
-
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => setShowEsignOtpModal(false)}
-                          className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors"
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={2} />
+                    ) : (
+                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-center">
+                        <div className="w-20 h-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
+                          <CheckCircle size={40} />
+                        </div>
+                        <h3 className="text-xl font-black text-white mb-4">Verification Complete</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm leading-relaxed">
+                          Your application has been verified by the Maker Officer. 
+                          You can now proceed to the next stage.
+                        </p>
+                        
+                        <button 
+                          onClick={() => navigate(`/application/${applicationId}/3`)}
+                          className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all mx-auto group"
                         >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleVerifyEsignOtp}
-                          disabled={esignOtp.length < 6 || actionLoading}
-                          className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold rounded-xl shadow-lg transition-colors"
-                        >
-                          {actionLoading ? 'Signing...' : 'Verify & eSign'}
+                          <span>Proceed to Maker Approved</span>
+                          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                         </button>
                       </div>
-                    </div>
-                    <p className="mt-6 text-xs text-gray-500">
-                      By clicking "Verify & eSign", you provide your consent to use your Aadhaar data for the purpose of digitally signing these loan documents via eSign ASP/ESP services.
-                    </p>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
-          ) : currentStatus === 'AGREEMENT_EXECUTED' || currentStatus === 'DISBURSED' || currentStatus === 'ACTIVE' ? (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-6">
-              <div className="flex items-center gap-4 text-green-800 mb-4">
-                <span className="text-3xl">✅</span>
-                <div>
-                  <h3 className="font-bold text-lg">Loan Agreement Fully Executed</h3>
-                  <p className="text-sm">Signed digitally by Customer & Lender on {agreementDetails?.executedAt ? new Date(agreementDetails.executedAt).toLocaleString() : new Date().toLocaleString()}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button className="px-4 py-2 bg-white border border-green-300 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition-colors flex items-center gap-2">
-                  ⬇️ Download Signed Agreement
-                </button>
-                <button className="px-4 py-2 bg-white border border-green-300 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition-colors flex items-center gap-2">
-                  ⬇️ Download MITC/KFS
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm italic">This stage will activate once the loan offer is accepted in Stage 7.</p>
-          )}
-          {(currentStatus === 'AGREEMENT_EXECUTED' || currentStatus === 'DISBURSED' || currentStatus === 'ACTIVE') && (
-            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
-              {maxAccessibleStage >= 9 ? (
-                <>
-                  <p className="text-sm text-gray-500">Agreement executed. Proceed to disbursement.</p>
-                  <button 
-                    onClick={() => navigate(`/application/${applicationId}/9`)}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                  >
-                    Next: Final Disbursement →
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-amber-600 font-semibold italic">
-                  Waiting for Maker to grant permission for Disbursement stage...
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        )}
+                )}
 
-        {/* ═══════════════════════════════════════════════
-            STAGE 09: LOAN DISBURSEMENT
-        ═══════════════════════════════════════════════ */}
-        {activeStage === 9 && (
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6 animate-fadeIn">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">9</span>
-            Loan Disbursement
-            {disbursementDetails?.status === 'SUCCESS' && (
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                ✓ Disbursed
-              </span>
-            )}
-          </h2>
-
-          {disbursementDetails ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200 shadow-sm relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-2 opacity-10 text-4xl">💰</div>
-                  <p className="text-xs text-green-600 font-bold uppercase tracking-wider mb-1">Net Disbursed Amount</p>
-                  <p className="text-3xl font-black text-green-800">₹{disbursementDetails.amount?.toLocaleString()}</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 shadow-sm">
-                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">UTR Number (Reference)</p>
-                  <p className="font-mono text-lg font-bold text-gray-800">{disbursementDetails.utr}</p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 shadow-sm">
-                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Credit Timestamp</p>
-                  <p className="font-semibold text-gray-800">
-                    {disbursementDetails.disbursedAt ? new Date(disbursementDetails.disbursedAt).toLocaleString() : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-700 uppercase tracking-widest">Final Ledger Entries (LMS)</h4>
-                </div>
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Beneficiary Account:</span>
-                      <span className="font-bold text-gray-800">{disbursementDetails.bankAccount}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Bank IFSC:</span>
-                      <span className="font-bold text-gray-800">{disbursementDetails.ifsc}</span>
-                    </div>
-                    <div className="flex justify-between text-sm border-t pt-3">
-                      <span className="text-gray-500">Loan Account Number (LAN):</span>
-                      <span className="font-mono font-bold text-indigo-700">PL-{applicationId}-{Math.floor(1000 + Math.random() * 9000)}</span>
-                    </div>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                    <div className="flex items-center gap-2 text-green-800 font-bold mb-2">
-                      <span>✅</span> Funds Transferred Successfully
-                    </div>
-                    <p className="text-xs text-green-700 leading-relaxed">
-                      LMS has activated the repayment schedule. GST Invoice for processing fees has been emailed to your registered address.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {(currentStatus === 'DISBURSED' || currentStatus === 'ACTIVE') && (
-                <div className="pt-4">
-                  <button
-                    onClick={() => navigate(`/loan-dashboard/${applicationId}`)}
-                    className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-2xl transition-all flex items-center justify-center gap-3 text-lg"
-                  >
-                    <span>📅</span> View Repayment Schedule & LMS Dashboard
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : currentStatus === 'AGREEMENT_EXECUTED' ? (
-            <div className="space-y-6">
-              {simulatedDisbAction && (
-                <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-xl shadow-sm">
-                  <div className="flex items-center gap-4 text-emerald-800 font-bold text-xl mb-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-800"></div>
-                    {simulatedDisbAction}
-                  </div>
-                  <div className="w-full bg-emerald-100 rounded-full h-3">
-                    <div className="bg-emerald-600 h-3 rounded-full transition-all duration-500" style={{ width: `${(disbStep / 6) * 100}%` }}></div>
-                  </div>
-                </div>
-              )}
-
-              {!simulatedDisbAction && (
-                <div className="space-y-6 animate-fadeIn">
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 flex items-start gap-4">
-                    <span className="text-2xl mt-1">💡</span>
-                    <div>
-                      <p className="text-sm text-blue-900 font-bold mb-1">Step 9.1: Destination Account Verification</p>
-                      <p className="text-xs text-blue-800 leading-relaxed">Please ensure the bank details below match your primary savings account. We will perform a Penny Drop test (₹1) to verify your name before the final transfer.</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 ml-1">Destination Bank Account</label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-3 text-gray-400">🏦</span>
-                        <input
-                          type="text"
-                          value={disbForm.bankAccount}
-                          onChange={(e) => setDisbForm({ ...disbForm, bankAccount: e.target.value.replace(/\D/g, '') })}
-                          className="w-full pl-11 pr-4 py-3 border-2 border-gray-100 rounded-xl focus:border-indigo-500 outline-none transition-colors font-mono tracking-wider"
-                          placeholder="ACCOUNT NUMBER"
-                          maxLength={18}
-                        />
+                {/* ═══════════════════════════════════════════════
+                    STAGE 03: MAKER APPROVED
+                ═══════════════════════════════════════════════ */}
+                {activeStageId === 3 && (
+                  <div className="p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl">
+                        <CheckCircle size={22} />
                       </div>
-                      <p className="text-[10px] text-gray-400 ml-1">Example: 123456789012 (9-18 digits)</p>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 ml-1">Bank IFSC Code</label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-3 text-gray-400">🏢</span>
-                        <input
-                          type="text"
-                          value={disbForm.ifsc}
-                          onChange={(e) => setDisbForm({ ...disbForm, ifsc: e.target.value.toUpperCase() })}
-                          className="w-full pl-11 pr-4 py-3 border-2 border-gray-100 rounded-xl focus:border-indigo-500 outline-none transition-colors font-mono tracking-widest"
-                          placeholder="IFSC CODE"
-                          maxLength={11}
-                        />
+                      <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Maker Approved</h2>
+                        <p className="text-gray-500 font-medium text-xs">Internal authorization successful</p>
                       </div>
-                      <p className="text-[10px] text-gray-400 ml-1">Example: SBIN0001234 (11 characters)</p>
                     </div>
-                  </div>
 
-                  <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
-                    <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
-                      <h4 className="font-black text-gray-800 uppercase tracking-tighter text-lg">Disbursement Breakdown</h4>
-                      <span className="bg-gray-800 text-white text-[10px] px-2 py-1 rounded font-bold">LOCKED</span>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-gray-600 font-medium">
-                        <span>Sanctioned Principal</span>
-                        <span>₹{application?.sanctionedAmount?.toLocaleString()}</span>
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={3} />
+                    ) : (
+                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-center">
+                        <div className="w-20 h-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
+                          <CheckCircle size={40} />
+                        </div>
+                        <h3 className="text-xl font-black text-white mb-4">Authorization Successful</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm leading-relaxed">
+                          Your application has been successfully authorized by the Maker Officer. 
+                          You can now proceed with KYC and Document verification.
+                        </p>
+
+                        <button 
+                          onClick={() => navigate(`/application/${applicationId}/4`)}
+                          className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all mx-auto group"
+                        >
+                          <span>Proceed to KYC Verification</span>
+                          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </button>
                       </div>
-                      <div className="flex justify-between text-red-600 font-medium">
-                        <span>Processing Fee (+GST)</span>
-                        <span>-₹{offerDetails?.processingFee?.toLocaleString()}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* ═══════════════════════════════════════════════
+                    STAGE 04: KYC VERIFICATION
+                ═══════════════════════════════════════════════ */}
+                {activeStageId === 4 && (
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 bg-violet-500/10 text-violet-400 rounded-2xl">
+                          <Shield size={22} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-black text-white uppercase tracking-tight">KYC Verification</h2>
+                          <p className="text-gray-500 font-medium text-xs">Identity & Compliance checks</p>
+                        </div>
                       </div>
-                      {simulatedInsurancePremium > 0 && (
-                        <div className="flex justify-between text-red-600 font-medium">
-                          <span>Insurance Premium</span>
-                          <span>-₹{simulatedInsurancePremium.toLocaleString()}</span>
+                      {kycDetails && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase">
+                          <CheckCircle size={14} /> Verified
                         </div>
                       )}
-                      <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
-                        <span className="text-gray-900 font-black text-xl uppercase">Net Transfer</span>
-                        <span className="text-indigo-700 font-black text-3xl tracking-tighter">₹{finalDisbursement.toLocaleString()}</span>
+                    </div>
+
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={4} />
+                    ) : kycDetails ? (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { label: 'PAN Number', value: kycDetails.pan, status: kycDetails.panVerified ? 'Verified' : 'Pending', color: kycDetails.panVerified ? 'text-emerald-400' : 'text-amber-400' },
+                          { label: 'Aadhaar Token', value: kycDetails.aadhaarToken, status: kycDetails.aadhaarVerified ? 'Verified' : 'Pending', color: kycDetails.aadhaarVerified ? 'text-emerald-400' : 'text-amber-400' },
+                          { label: 'CKYC Status', value: kycDetails.ckycFound ? 'Found' : 'Not Found', status: kycDetails.ckycFound ? 'Confirmed' : 'System Search', color: kycDetails.ckycFound ? 'text-emerald-400' : 'text-gray-400' },
+                        ].map((item, i) => (
+                          <div key={i} className="bg-[#2a2a32] p-5 rounded-2xl border border-white/5">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{item.label}</p>
+                            <p className="text-base font-bold text-white mb-2">{item.value}</p>
+                            <span className={`text-[10px] font-black uppercase px-2 py-1 bg-white/5 rounded-lg ${item.color}`}>
+                              {item.status}
+                            </span>
+                          </div>
+                        ))}
+                        
+                        <div className="col-span-1 md:col-span-3 grid grid-cols-2 gap-4 mt-2">
+                          <div className={`p-5 rounded-2xl border ${kycDetails.fraudFlag ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                            <div className="flex items-center gap-3">
+                              {kycDetails.fraudFlag ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                              <span className="text-[10px] font-black uppercase tracking-wider">Fraud Check: {kycDetails.fraudFlag ? 'Flagged' : 'Clear'}</span>
+                            </div>
+                          </div>
+                          <div className={`p-5 rounded-2xl border ${kycDetails.amlFlag ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                            <div className="flex items-center gap-3">
+                              {kycDetails.amlFlag ? <XCircle size={16} /> : <CheckCircle size={16} />}
+                              <span className="text-[10px] font-black uppercase tracking-wider">AML Screening: {kycDetails.amlFlag ? 'Flagged' : 'Clear'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (currentStatus === 'MAKER_CHECKED' || currentStatus === 'SUBMITTED' || currentStatus === 'DRAFT') ? (
+                      <div className="space-y-6">
+                        <div className="bg-[#2a2a32] p-8 rounded-[32px] border border-white/5">
+                          <p className="text-gray-400 text-xs font-medium mb-8 leading-relaxed">
+                            Complete your Know Your Customer (KYC) verification. This involves verifying your identity against government databases in real-time.
+                          </p>
+
+                          {/* Progress indicator for KYC */}
+                          <div className="flex items-center justify-between mb-8 px-8">
+                            {[
+                              { step: 1, label: 'PAN' },
+                              { step: 2, label: 'Aadhaar' },
+                              { step: 3, label: 'OTP' },
+                              { step: 4, label: 'Checks' }
+                            ].map((s) => (
+                              <div key={s.step} className="flex flex-col items-center flex-1 relative">
+                                {s.step < 4 && (
+                                  <div className={`absolute top-4 left-1/2 w-full h-px ${kycStep > s.step ? 'bg-indigo-500' : 'bg-white/5'}`} />
+                                )}
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black z-10 transition-all duration-300 ${
+                                  kycStep >= s.step 
+                                    ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' 
+                                    : 'bg-[#16161a] text-gray-600 border border-white/5'
+                                }`}>
+                                  {kycStep > s.step ? <CheckCircle size={14} /> : s.step}
+                                </div>
+                                <span className={`text-[10px] font-black uppercase tracking-tighter mt-2 ${kycStep >= s.step ? 'text-white' : 'text-gray-600'}`}>
+                                  {s.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {simulatedKycAction ? (
+                            <div className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 p-8 rounded-3xl flex flex-col items-center gap-4">
+                              <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                              <span className="text-xs font-bold tracking-tight uppercase">{simulatedKycAction}</span>
+                            </div>
+                          ) : (
+                            <div className="bg-[#16161a] p-8 rounded-3xl border border-white/5">
+                              {kycStep === 1 && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                                  <div>
+                                    <h3 className="text-base font-black text-white mb-2 uppercase tracking-tight">Step 4.1: PAN Verification</h3>
+                                    <p className="text-[10px] text-gray-500 mb-6 font-bold uppercase tracking-widest">Enter your Permanent Account Number for instant verification.</p>
+                                    <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
+                                        <Shield size={18} />
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={kycForm.pan}
+                                        onChange={(e) => setKycForm({ ...kycForm, pan: e.target.value.toUpperCase() })}
+                                        className="w-full bg-[#1e1e24] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-indigo-500 transition-all"
+                                        placeholder="ABCDE1234F"
+                                        maxLength={10}
+                                      />
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+
+                              {kycStep === 2 && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                                  <div>
+                                    <div className="flex items-center gap-2 text-emerald-400 mb-4">
+                                      <CheckCircle size={14} />
+                                      <span className="text-[10px] font-black uppercase">PAN Verified Successfully</span>
+                                    </div>
+                                    <h3 className="text-base font-black text-white mb-2 uppercase tracking-tight">Step 4.2: Aadhaar eKYC</h3>
+                                    <p className="text-[10px] text-gray-500 mb-6 font-bold uppercase tracking-widest">Enter the last 4 digits of your Aadhaar for identity verification.</p>
+                                    <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
+                                        <Lock size={18} />
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={kycForm.aadhaarLast4}
+                                        onChange={(e) => setKycForm({ ...kycForm, aadhaarLast4: e.target.value.replace(/\D/g, '') })}
+                                        className="w-full bg-[#1e1e24] border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-indigo-500 transition-all"
+                                        placeholder="1234"
+                                        maxLength={4}
+                                      />
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+
+                              {kycStep === 3 && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                                  <div>
+                                    <div className="flex items-center gap-2 text-indigo-400 mb-4">
+                                      <MessageSquare size={14} />
+                                      <span className="text-[10px] font-black uppercase tracking-tight">OTP sent to linked mobile</span>
+                                    </div>
+                                    <h3 className="text-base font-black text-white mb-2 uppercase tracking-tight">Step 4.3: Aadhaar OTP</h3>
+                                    <p className="text-[10px] text-gray-500 mb-6 font-bold uppercase tracking-widest">Enter the 6-digit code sent to your UIDAI registered mobile.</p>
+                                    <input
+                                      type="text"
+                                      value={kycForm.otp}
+                                      onChange={(e) => setKycForm({ ...kycForm, otp: e.target.value.replace(/\D/g, '') })}
+                                      className="w-full bg-[#1e1e24] border border-white/10 rounded-xl py-5 text-center text-2xl font-black tracking-[0.8em] text-white placeholder:text-gray-800 focus:outline-none focus:border-indigo-500 transition-all"
+                                      placeholder="000000"
+                                      maxLength={6}
+                                    />
+                                  </div>
+                                </motion.div>
+                              )}
+
+                              {kycStep === 4 && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                                  <h3 className="text-base font-black text-white mb-4 uppercase tracking-tight">Final System Checks</h3>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                      'Querying CKYC Registry...',
+                                      'Cross-verifying address...',
+                                      application?.requestedAmount > 200000 ? 'Video KYC Readiness...' : null,
+                                      'Fraud & AML Watchlist...'
+                                    ].filter(Boolean).map((text, i) => (
+                                      <div key={i} className="flex items-center gap-3 p-4 bg-[#1e1e24] rounded-xl border border-white/5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                        <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">{text}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+
+                              <div className="flex justify-end mt-8">
+                                <button
+                                  onClick={handleNextKycStep}
+                                  disabled={
+                                    (kycStep === 1 && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(kycForm.pan)) ||
+                                    (kycStep === 2 && !/^[0-9]{4}$/.test(kycForm.aadhaarLast4)) ||
+                                    (kycStep === 3 && kycForm.otp.length !== 6)
+                                  }
+                                  className="px-8 py-3.5 bg-indigo-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all"
+                                >
+                                  {kycStep === 4 ? 'Complete Verification' : 'Verify & Continue'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-[#2a2a32] p-16 rounded-[32px] text-center border border-dashed border-white/5">
+                        <Lock size={40} className="mx-auto text-gray-700 mb-4" />
+                        <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tight">KYC Locked</h3>
+                        <p className="text-gray-500 text-sm font-medium">Complete the previous stages to unlock identity verification.</p>
+                      </div>
+                    )}
+
+                    {kycDetails && (
+                      <div className="mt-8 pt-8 border-t border-white/5 flex justify-end items-center gap-6">
+                        {maxAccessibleStage >= 5 ? (
+                          <>
+                            <p className="text-xs text-gray-500 font-medium italic">Identity verified. Proceed to document submission.</p>
+                            <button 
+                              onClick={() => navigate(`/application/${applicationId}/5`)}
+                              className="flex items-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all group"
+                            >
+                              <span>Next: Documents</span>
+                              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                            </button>
+                          </>
+                        ) : (
+                          isMaker ? (
+                            <div className="w-full mt-4">
+                              <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
+                              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              <p className="text-xs font-bold">Waiting for permission...</p>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ═══════════════════════════════════════════════
+                    STAGE 05: DOCUMENT UPLOAD & VERIFICATION
+                ═══════════════════════════════════════════════ */}
+                {activeStageId === 5 && (
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl">
+                          <Plus size={22} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-black text-white uppercase tracking-tight">Documents</h2>
+                          <p className="text-gray-500 font-medium text-xs">Upload and verify required documents</p>
+                        </div>
+                      </div>
+                      {currentStatus !== 'DRAFT' && documents.length > 0 && documents.every((d: any) => d.verificationStatus === 'VERIFIED') && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase">
+                          <CheckCircle size={14} /> All Verified
+                        </div>
+                      )}
+                    </div>
+
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={5} />
+                    ) : (
+                      <>
+                        {/* Document list */}
+                        {documents.length > 0 && (
+                          <div className="mb-8 overflow-hidden bg-[#2a2a32] rounded-2xl border border-white/5">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="border-b border-white/5 bg-white/5">
+                                  <th className="py-3 px-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">Type</th>
+                                  <th className="py-3 px-6 text-[10px] font-black text-gray-500 uppercase tracking-widest">File</th>
+                                  <th className="py-3 px-6 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {documents.map((doc: any) => (
+                                  <tr key={doc.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                                    <td className="py-4 px-6">
+                                      <p className="text-xs font-bold text-white uppercase tracking-tight">{doc.documentType.replace(/_/g, ' ')}</p>
+                                    </td>
+                                    <td className="py-4 px-6 text-[10px] text-gray-500 font-medium">{doc.storageUrl?.split('/').pop() || doc.fileName}</td>
+                                    <td className="py-4 px-6 text-right">
+                                      <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${
+                                        doc.verificationStatus === 'VERIFIED' ? 'bg-emerald-500/10 text-emerald-400' : 
+                                        doc.verificationStatus === 'FAILED' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'
+                                      }`}>
+                                        {doc.verificationStatus}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Upload Form */}
+                        {(currentStatus === 'DRAFT' || currentStatus === 'KYC_VERIFIED' || currentStatus === 'MAKER_CHECKED' || currentStatus === 'SUBMITTED') && (
+                          <div className="space-y-6">
+                            <div className="bg-[#2a2a32] p-8 rounded-[32px] border border-white/5">
+                              <div className="flex items-center gap-3 mb-6">
+                                <Compass size={20} className="text-indigo-400" />
+                                <h3 className="text-sm font-black text-white uppercase tracking-widest">Document Checklist</h3>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 gap-3">
+                                {[
+                                  { category: 'Identity Proof', key: 'IDENTITY_PROOF' },
+                                  { category: 'Address Proof', key: 'ADDRESS_PROOF' },
+                                  { category: 'Income Proof', key: 'INCOME_PROOF' },
+                                  { category: 'Bank Statement', key: 'BANK_STATEMENT' },
+                                ].map(docType => {
+                                  const isUploaded = documents.some((d: any) => d.documentType === docType.key);
+                                  return (
+                                    <div key={docType.key} className="flex items-center justify-between bg-[#1e1e24] p-5 rounded-xl border border-white/5 group hover:border-indigo-500/30 transition-all">
+                                      <div>
+                                        <p className="text-sm font-bold text-white">{docType.category}</p>
+                                        <p className="text-[9px] text-gray-600 font-black uppercase tracking-widest mt-0.5">Required for verification</p>
+                                      </div>
+                                      <div className="flex items-center gap-4">
+                                        {isUploaded ? (
+                                          <div className="flex items-center gap-2 text-emerald-400 bg-emerald-400/10 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase">
+                                            <CheckCircle size={12} /> Uploaded
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-3">
+                                            <input
+                                              type="file"
+                                              id={`file-${docType.key}`}
+                                              className="hidden"
+                                              onChange={(e) => {
+                                                if (e.target.files?.[0]) {
+                                                  setDocForm({ documentType: docType.key, fileName: e.target.files[0].name });
+                                                }
+                                              }}
+                                            />
+                                            <label 
+                                              htmlFor={`file-${docType.key}`}
+                                              className="px-3 py-1.5 bg-[#2a2a32] text-gray-500 hover:text-white rounded-lg text-[9px] font-black uppercase border border-white/10 cursor-pointer transition-colors"
+                                            >
+                                              {docForm.documentType === docType.key ? docForm.fileName : 'Choose File'}
+                                            </label>
+                                            {docForm.documentType === docType.key && (
+                                              <button
+                                                onClick={handleDocumentUpload}
+                                                disabled={actionLoading}
+                                                className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-lg"
+                                              >
+                                                <Plus size={16} />
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {simulatedDocAction && (
+                              <div className="bg-indigo-500/10 border border-indigo-500/20 p-8 rounded-3xl">
+                                <div className="flex items-center gap-4 mb-4">
+                                  <div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                                  <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{simulatedDocAction}</span>
+                                </div>
+                                <div className="w-full bg-white/5 rounded-full h-1">
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(docVerifyStep / 5) * 100}%` }}
+                                    className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {!simulatedDocAction && documents.length > 0 && documents.some((d: any) => d.verificationStatus === 'PENDING') && (
+                              <button
+                                onClick={handleAutoVerifyDocs}
+                                className="w-full py-4 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-3"
+                              >
+                                <Shield size={18} />
+                                Start AI Document Verification
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Next Stage Footer */}
+                        {documents.length > 0 && !documents.some((d: any) => d.verificationStatus === 'PENDING') && (
+                          <div className="mt-8 pt-8 border-t border-white/5 flex justify-end items-center gap-6">
+                            {maxAccessibleStage >= 6 ? (
+                              <>
+                                <p className="text-xs text-gray-500 font-medium italic">Verification complete. Proceed to assessment.</p>
+                                <button 
+                                  onClick={() => navigate(`/application/${applicationId}/6`)}
+                                  className="flex items-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all group"
+                                >
+                                  <span>Next: Credit Assessment</span>
+                                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                </button>
+                              </>
+                            ) : (
+                              isMaker ? (
+                                <div className="w-full mt-4">
+                                  <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                  <p className="text-xs font-bold">Waiting for credit stage to unlock...</p>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ═══════════════════════════════════════════════
+                    STAGE 06: CREDIT ASSESSMENT & UNDERWRITING
+                ═══════════════════════════════════════════════ */}
+                {activeStageId === 6 && (
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 bg-violet-500/10 text-violet-400 rounded-2xl">
+                          <BarChart2 size={22} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-black text-white uppercase tracking-tight">Credit Assessment</h2>
+                          <p className="text-gray-500 font-medium text-xs">Underwriting & Risk Analysis</p>
+                        </div>
+                      </div>
+                      {creditDetails && (
+                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-black uppercase ${
+                          creditDetails.finalDecision === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        }`}>
+                          {creditDetails.finalDecision === 'APPROVED' ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                          {creditDetails.finalDecision}
+                        </div>
+                      )}
+                    </div>
+
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={6} />
+                    ) : creditDetails ? (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {[
+                            { label: 'Bureau Score', value: creditDetails.bureauScore, icon: BarChart2, color: 'text-indigo-400' },
+                            { label: 'Internal Score', value: creditDetails.internalScore, icon: Shield, color: 'text-violet-400' },
+                            { label: 'Risk Grade', value: creditDetails.riskGrade, icon: TrendingUp, color: 'text-amber-400' },
+                          ].map((item, i) => (
+                            <div key={i} className="bg-[#2a2a32] p-6 rounded-2xl border border-white/5 relative overflow-hidden group">
+                              <item.icon size={40} className="absolute -right-3 -top-3 text-white/5 group-hover:text-white/10 transition-colors" />
+                              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">{item.label}</p>
+                              <p className={`text-3xl font-black ${item.color}`}>{item.value}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="bg-[#2a2a32] p-8 rounded-[32px] border border-white/5">
+                          <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6">Decision Intelligence</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex items-center gap-4 p-5 bg-[#1e1e24] rounded-2xl border border-white/5">
+                              <div className={`p-2.5 rounded-xl ${creditDetails.policyPassed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                {creditDetails.policyPassed ? <CheckCircle size={18} /> : <XCircle size={18} />}
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Policy Compliance</p>
+                                <p className="text-xs font-bold text-white">{creditDetails.policyPassed ? 'Criteria Met' : 'Check Failed'}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 p-5 bg-[#1e1e24] rounded-2xl border border-white/5">
+                              <div className={`p-2.5 rounded-xl ${creditDetails.stpEligible ? 'bg-indigo-500/10 text-indigo-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                <RotateCcw size={18} className={creditDetails.stpEligible ? '' : 'animate-pulse'} />
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Processing Type</p>
+                                <p className="text-xs font-bold text-white">{creditDetails.stpEligible ? 'Straight-Through (Auto)' : 'Manual Review Required'}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-4 p-5 bg-[#1e1e24] rounded-2xl border border-white/5">
+                            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Decision Rationale</p>
+                            <p className="text-xs text-gray-400 font-medium leading-relaxed">{creditDetails.decisionReason}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (currentStatus === 'KYC_VERIFIED' || currentStatus === 'DOCS_COMPLETE' || currentStatus === 'MAKER_CHECKED' || currentStatus === 'SUBMITTED') ? (
+                      <div className="space-y-6">
+                        {simulatedCreditAction ? (
+                          <div className="bg-violet-500/10 border border-violet-500/20 p-10 rounded-[32px] flex flex-col items-center gap-6">
+                            <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin" />
+                            <div className="text-center">
+                              <p className="text-lg font-black text-white uppercase tracking-tight mb-1">AI Underwriting in Progress</p>
+                              <p className="text-[10px] text-violet-400 font-bold uppercase tracking-widest">{simulatedCreditAction}</p>
+                            </div>
+                            <div className="w-full max-w-xs bg-white/5 rounded-full h-1">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(creditVerifyStep / 6) * 100}%` }}
+                                className="h-full bg-violet-500 shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-[#2a2a32] border border-white/5 p-10 rounded-[32px] text-center">
+                            <div className="w-20 h-20 bg-violet-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-violet-400">
+                              <BarChart2 size={40} />
+                            </div>
+                            <h3 className="text-xl font-black text-white mb-4 uppercase tracking-tight">Ready for Assessment</h3>
+                            <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm">
+                              The system will evaluate bureau reports, negative policies, 
+                              and ML scoring models to determine eligibility.
+                            </p>
+                            <button
+                              onClick={handleCreditAssessment}
+                              className="px-10 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 mx-auto group"
+                            >
+                              <Shield size={18} className="group-hover:scale-110 transition-transform" />
+                              Run Automated Underwriting
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-[#2a2a32] p-16 rounded-[32px] text-center border border-dashed border-white/5">
+                        <Lock size={40} className="mx-auto text-gray-700 mb-4" />
+                        <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tight">Assessment Locked</h3>
+                        <p className="text-gray-500 text-sm">Documents must be verified before credit assessment can begin.</p>
+                      </div>
+                    )}
+
+                    {creditDetails && (
+                      <div className="mt-8 pt-8 border-t border-white/5 flex justify-end items-center gap-6">
+                        {maxAccessibleStage >= 7 ? (
+                          <>
+                            <p className="text-xs text-gray-500 font-medium italic">Assessment finalized. View your customized offer.</p>
+                            <button 
+                              onClick={() => navigate(`/application/${applicationId}/7`)}
+                              className="flex items-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all group"
+                            >
+                              <span>View Loan Offer</span>
+                              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                            </button>
+                          </>
+                        ) : (
+                          isMaker ? (
+                            <div className="w-full mt-4">
+                              <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
+                              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              <p className="text-xs font-bold">Waiting for offer generation...</p>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ═══════════════════════════════════════════════
+                    STAGE 07: LOAN OFFER GENERATION & ACCEPTANCE
+                ═══════════════════════════════════════════════ */}
+                {activeStageId === 7 && (
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3.5 bg-amber-500/10 text-amber-400 rounded-2xl">
+                          <DollarSign size={22} />
+                        </div>
+                        <div>
+                          <h2 className="text-xl font-black text-white uppercase tracking-tight">Loan Offer</h2>
+                          <p className="text-gray-500 font-medium text-xs">Personalized Sanction Details</p>
+                        </div>
+                      </div>
+                      {offerDetails?.accepted && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase">
+                          <CheckCircle size={14} /> Accepted
+                        </div>
+                      )}
+                    </div>
+
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={7} />
+                    ) : offerDetails ? (
+                      <div className="space-y-6">
+                        {/* Premium Offer Card */}
+                        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[32px] p-8 text-white shadow-[0_20px_50px_rgba(79,70,229,0.3)] relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-700">
+                            <ShoppingBag size={100} />
+                          </div>
+                          
+                          <div className="relative z-10">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 mb-8">Official Sanction Letter Summary</p>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                              <div>
+                                <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Sanctioned Amount</p>
+                                <p className="text-3xl font-black">₹{principal.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Monthly EMI</p>
+                                <p className="text-3xl font-black">₹{computedEmi.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Interest Rate</p>
+                                <p className="text-3xl font-black text-emerald-300">{annualRate}% <span className="text-xs font-bold opacity-60">p.a.</span></p>
+                              </div>
+                              <div>
+                                <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Tenure</p>
+                                <p className="text-3xl font-black">{tenure} <span className="text-xs font-bold opacity-60">Mo</span></p>
+                              </div>
+                            </div>
+
+                            <div className="mt-8 pt-8 border-t border-white/10 grid grid-cols-3 gap-6">
+                              <div>
+                                <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Processing Fee</p>
+                                <p className="text-base font-bold">₹{offerDetails.processingFee?.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-1">Insurance</p>
+                                <p className="text-base font-bold">₹{simulatedInsurancePremium.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <p className="text-emerald-300/80 text-[10px] font-black uppercase tracking-widest mb-1">Net Disbursement</p>
+                                <p className="text-base font-black text-emerald-300">₹{finalDisbursement.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Customizer */}
+                        {!offerDetails.accepted && (
+                          <div className="bg-[#2a2a32] p-8 rounded-[32px] border border-white/5">
+                            <h3 className="text-sm font-black text-white uppercase tracking-widest mb-8">Optimize Your Plan</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                              <div className="space-y-6">
+                                <div className="flex justify-between items-end">
+                                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Loan Amount</p>
+                                  <p className="text-lg font-black text-white">₹{principal.toLocaleString()}</p>
+                                </div>
+                                <div className="relative pt-1">
+                                  <input
+                                    type="range"
+                                    min="10000"
+                                    max={application?.sanctionedAmount || 500000}
+                                    step="10000"
+                                    value={principal}
+                                    onChange={(e) => setOfferAmount(Number(e.target.value))}
+                                    className="w-full h-1 bg-[#1e1e24] rounded-full appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
+                                  />
+                                  <div className="flex justify-between mt-2">
+                                    <span className="text-[8px] font-bold text-gray-600">₹10K</span>
+                                    <span className="text-[8px] font-bold text-gray-600">₹{(application?.sanctionedAmount || 500000).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="space-y-6">
+                                <div className="flex justify-between items-end">
+                                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Tenure</p>
+                                  <p className="text-lg font-black text-white">{tenure} Months</p>
+                                </div>
+                                <div className="relative pt-1">
+                                  <input
+                                    type="range"
+                                    min="6"
+                                    max="60"
+                                    step="6"
+                                    value={tenure}
+                                    onChange={(e) => setOfferTenure(Number(e.target.value))}
+                                    className="w-full h-1 bg-[#1e1e24] rounded-full appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-all"
+                                  />
+                                  <div className="flex justify-between mt-2">
+                                    <span className="text-[8px] font-bold text-gray-600">6 Mo</span>
+                                    <span className="text-[8px] font-bold text-gray-600">60 Mo</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Acceptance Controls */}
+                        {!offerDetails.accepted && (
+                          <div className="bg-[#2a2a32] p-8 rounded-[32px] border border-white/5 space-y-8">
+                            <h3 className="text-sm font-black text-white uppercase tracking-widest">Digital Acceptance</h3>
+                            
+                            {/* KFS Scroll Gate */}
+                            <div className="bg-[#1e1e24] rounded-2xl border border-white/5 overflow-hidden">
+                              <div className="px-5 py-3 border-b border-white/5 flex justify-between items-center bg-white/5">
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest">Key Facts Statement (KFS)</span>
+                                <button className="text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-300 flex items-center gap-1">
+                                  <FileText size={12} /> Download
+                                </button>
+                              </div>
+                              <div 
+                                className="h-48 overflow-y-auto p-5 text-[11px] text-gray-500 font-medium leading-relaxed scrollbar-thin scrollbar-thumb-white/10"
+                                onScroll={handleKfsScroll}
+                              >
+                                <div className="space-y-4">
+                                  <p className="text-gray-400 font-black uppercase tracking-wider text-[10px] pb-2 border-b border-white/5">Critical Disclosures:</p>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                      <p className="text-gray-600 uppercase text-[9px] font-black">Annual Percentage Rate</p>
+                                      <p className="text-white font-bold">{annualRate}%</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="text-gray-600 uppercase text-[9px] font-black">Total Repayment</p>
+                                      <p className="text-white font-bold">₹{(computedEmi * tenure).toLocaleString()}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="text-gray-600 uppercase text-[9px] font-black">Processing Fee</p>
+                                      <p className="text-white font-bold">₹{offerDetails.processingFee?.toLocaleString()}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="text-gray-600 uppercase text-[9px] font-black">Pre-payment Policy</p>
+                                      <p className="text-white font-bold">Zero charges after 6 EMIs</p>
+                                    </div>
+                                  </div>
+                                  <div className="p-3 bg-black/20 rounded-xl border border-white/5">
+                                    <p className="text-gray-500">• Default Interest: 2% monthly on overdue</p>
+                                    <p className="text-gray-500">• Recovery Charges: As per actuals</p>
+                                  </div>
+                                </div>
+                                <div className="h-10" />
+                              </div>
+                              <div className="p-5 bg-black/40">
+                                <label className={`flex items-center gap-3 cursor-pointer transition-all duration-500 ${!hasScrolledToBottom ? 'opacity-20 grayscale pointer-events-none' : 'opacity-100'}`}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={kfsAcknowledged}
+                                    onChange={(e) => setKfsAcknowledged(e.target.checked)}
+                                    className="w-5 h-5 rounded-lg bg-[#2a2a32] border-white/10 text-indigo-600 focus:ring-0 transition-colors" 
+                                  />
+                                  <span className="text-xs font-bold text-gray-400">I have reviewed and agree to the KFS and all loan terms.</span>
+                                </label>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <button
+                                onClick={handleDigitalAcceptance}
+                                disabled={!kfsAcknowledged || actionLoading}
+                                className="py-4 bg-emerald-600 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 group"
+                              >
+                                <CheckCircle size={18} className="group-hover:scale-110 transition-transform" />
+                                Accept Offer
+                              </button>
+                              <button
+                                onClick={() => setShowRejectConfirm(true)}
+                                className="py-4 bg-transparent border border-rose-500/20 text-rose-500 hover:bg-rose-500/10 rounded-xl font-black text-xs uppercase tracking-widest transition-all"
+                              >
+                                Decline Offer
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* OTP Modal */}
+                        {showOtpModal && (
+                          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-6">
+                            <motion.div 
+                              initial={{ scale: 0.9, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              className="bg-[#1e1e24] rounded-[48px] p-10 max-w-md w-full border border-white/5 shadow-2xl text-center"
+                            >
+                              <div className="w-20 h-20 bg-indigo-500/10 rounded-[32px] flex items-center justify-center mx-auto mb-6 text-indigo-400">
+                                <MessageSquare size={32} />
+                              </div>
+                              <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-2">Sign Your Offer</h3>
+                              <p className="text-gray-500 text-sm font-medium mb-10">
+                                Enter the 6-digit OTP sent to your mobile to digitally execute this loan offer.
+                              </p>
+                              
+                              <input
+                                type="text"
+                                maxLength={6}
+                                placeholder="000000"
+                                value={acceptanceOtp}
+                                onChange={(e) => setAcceptanceOtp(e.target.value.replace(/\D/g, ''))}
+                                className="w-full bg-[#16161a] border border-white/10 rounded-3xl py-6 text-center text-4xl font-black tracking-[0.5em] text-white focus:outline-none focus:border-indigo-500 transition-all mb-8"
+                              />
+
+                              <div className="flex gap-3">
+                                <button 
+                                  onClick={() => setShowOtpModal(false)}
+                                  className="flex-1 py-4 bg-transparent text-gray-500 font-black text-xs uppercase tracking-widest hover:text-white"
+                                >
+                                  Cancel
+                                </button>
+                                <button 
+                                  onClick={handleVerifyAcceptanceOtp}
+                                  disabled={acceptanceOtp.length < 6 || actionLoading}
+                                  className="flex-[2] py-4 bg-indigo-600 disabled:bg-gray-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl"
+                                >
+                                  Verify & Sign
+                                </button>
+                              </div>
+                            </motion.div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (currentStatus === 'APPROVED') ? (
+                      <div className="bg-[#2a2a32] border border-white/5 p-10 rounded-[40px] text-center">
+                        <div className="w-24 h-24 bg-amber-500/10 rounded-[32px] flex items-center justify-center mx-auto mb-6 text-amber-400">
+                          <DollarSign size={48} />
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-4 uppercase tracking-tight">Generate Final Offer</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-10 font-medium">
+                          Our pricing engine will now calculate your final interest rate, 
+                          processing fees, and amortization schedule.
+                        </p>
+                        <button
+                          onClick={handleOfferGeneration}
+                          className="px-12 py-5 bg-indigo-600 text-white rounded-[32px] font-black text-sm uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 mx-auto"
+                        >
+                          <Plus size={20} />
+                          Generate My Offer
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-[#2a2a32] p-16 rounded-[40px] text-center border border-dashed border-white/5">
+                        <Lock size={48} className="mx-auto text-gray-700 mb-4" />
+                        <h3 className="text-xl font-bold text-white mb-2">Offer Not Ready</h3>
+                        <p className="text-gray-500">Credit assessment must be completed before an offer can be generated.</p>
+                      </div>
+                    )}
+
+                    {offerDetails?.accepted && (
+                      <div className="mt-10 pt-10 border-t border-white/5 flex justify-end items-center gap-6">
+                        {maxAccessibleStage >= 8 ? (
+                          <>
+                            <p className="text-sm text-gray-500 font-medium italic">Offer accepted. Move to digital agreement execution.</p>
+                            <button 
+                              onClick={() => navigate(`/application/${applicationId}/8`)}
+                              className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-indigo-700 transition-all group"
+                            >
+                              <span>Legal Agreement</span>
+                              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                            </button>
+                          </>
+                        ) : (
+                          isMaker ? (
+                            <div className="w-full mt-6">
+                              <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-8 py-4 rounded-2xl border border-amber-400/20">
+                              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                              <p className="text-sm font-bold">Waiting for agreement package...</p>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* STAGES 08 - 10 follow same premium pattern... */}
+                {activeStageId === 8 && (
+                  <div className="p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="p-3.5 bg-indigo-500/10 text-indigo-400 rounded-2xl">
+                        <Activity size={22} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Disbursement</h2>
+                        <p className="text-gray-500 font-medium text-xs">Funds transfer & activation</p>
                       </div>
                     </div>
+
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={8} />
+                    ) : (
+                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-center">
+                        <div className="w-20 h-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
+                          <CheckCircle size={40} />
+                        </div>
+                        <h3 className="text-xl font-black text-white mb-4 uppercase tracking-tight">Loan Disbursed</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm">
+                          Funds have been successfully transferred to your registered bank account. 
+                          Your loan account is now active.
+                        </p>
+                        
+                        <button 
+                          onClick={() => navigate(`/application/${applicationId}/9`)}
+                          className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all mx-auto group"
+                        >
+                          <span>View Repayment Schedule</span>
+                          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  <button
-                    onClick={handleDisbursement}
-                    disabled={actionLoading || disbForm.bankAccount.length < 9 || disbForm.ifsc.length !== 11}
-                    className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-black text-xl rounded-2xl shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3 transform hover:-translate-y-1"
-                  >
-                    {actionLoading ? <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div> : '💰 TRIGGER FINAL DISBURSEMENT'}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm italic">This stage will activate once the Loan Agreement is executed in Stage 8.</p>
-          )}
-          {(disbursementDetails?.status === 'SUCCESS' || currentStatus === 'ACTIVE') && (
-            <div className="mt-8 pt-6 border-t flex justify-end items-center gap-4">
-              {maxAccessibleStage >= 10 ? (
-                <>
-                  <p className="text-sm text-gray-500">Funds disbursed. View final status.</p>
-                  <button 
-                    onClick={() => navigate(`/application/${applicationId}/10`)}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                  >
-                    Next: Final Status →
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-amber-600 font-semibold italic">
-                  Waiting for Maker to grant permission for Final stage...
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        )}
+                {activeStageId === 9 && (
+                  <div className="p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl">
+                        <CheckCircle size={22} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Repayment</h2>
+                        <p className="text-gray-500 font-medium text-xs">Manage your active loan</p>
+                      </div>
+                    </div>
 
-        {/* Stage 10: Post-Disbursement Stage */}
-        {activeStage === 10 && (
-          <div className="bg-white rounded-lg shadow-lg p-8 mb-6 text-center animate-fadeIn">
-            <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">🎉</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Stage 10: Loan Active & Disbursed</h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
-              Your application process is complete. You can now manage your loan, view repayment schedules, and make payments from your personal dashboard.
-            </p>
-            <button
-              onClick={() => navigate(`/loan-dashboard/${applicationId}`)}
-              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
-            >
-              <span>📅</span> Go to Repayment Dashboard
-            </button>
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={9} />
+                    ) : (
+                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-center">
+                        <div className="w-20 h-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
+                          <CheckCircle size={40} />
+                        </div>
+                        <h3 className="text-xl font-black text-white mb-4 uppercase tracking-tight">Active Servicing</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm">
+                          Your loan is in active repayment. You can track your EMIs 
+                          and download statements from this section.
+                        </p>
+                        
+                        <button 
+                          onClick={() => navigate(`/application/${applicationId}/10`)}
+                          className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all mx-auto group"
+                        >
+                          <span>Loan Closure Details</span>
+                          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeStageId === 10 && (
+                  <div className="p-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl">
+                        <CheckCircle size={22} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Loan Closure</h2>
+                        <p className="text-gray-500 font-medium text-xs">Final status and NOC</p>
+                      </div>
+                    </div>
+
+                    {activeStageId > maxAccessibleStage ? (
+                      <AwaitingAuthorizationView stageNum={10} />
+                    ) : (
+                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-center">
+                        <div className="w-20 h-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
+                          <CheckCircle size={40} />
+                        </div>
+                        <h3 className="text-xl font-black text-white mb-4 uppercase tracking-tight">Loan Closed</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm">
+                          Congratulations! Your loan has been successfully closed. 
+                          You can download your No Objection Certificate (NOC) now.
+                        </p>
+                        
+                        <button className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all mx-auto group">
+                          <FileText size={18} />
+                          <span>Download NOC</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
-        )}
+        </main>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 export default ApplicationStatus;
