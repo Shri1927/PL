@@ -10,6 +10,7 @@ RUN mvn -B -DskipTests package
 FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
+RUN apk add --no-cache curl
 COPY --from=build /app/target/personal-loan-los-1.0.0.jar app.jar
 
 EXPOSE 8080
