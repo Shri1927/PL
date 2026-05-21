@@ -44,4 +44,10 @@ public class AuthController {
         return ApiResponse.<AuthResponse>builder().timestamp(Instant.now()).success(true).message("Token refreshed")
                 .data(authService.refresh(request)).build();
     }
+
+    @GetMapping("/get-otp/{mobile}")
+    public ApiResponse<OtpResponse> getOtp(@PathVariable String mobile) {
+        return ApiResponse.<OtpResponse>builder().timestamp(Instant.now()).success(true).message("OTP retrieved")
+                .data(authService.getOtp(mobile)).build();
+    }
 }

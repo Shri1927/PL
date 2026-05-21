@@ -36,7 +36,6 @@ const PremiumDashboard = () => {
       case 7: return "Offer Accepted";
       case 8: return "Agreement Signed";
       case 9: return "Funds Disbursed";
-      case 10: return "Loan Active";
       default: return `Stage ${stage}`;
     }
   };
@@ -415,7 +414,7 @@ const PremiumDashboard = () => {
                           animate={{ opacity: 1, height: 'auto' }}
                           className="mt-6 pt-6 border-t border-gray-800"
                         >
-                          {(task.allowedStage || task.allowed_stage || 1) < 10 ? (
+                          {(task.allowedStage || task.allowed_stage || 1) < 9 ? (
                             <div className="space-y-4">
                               <div className="bg-indigo-600/10 border border-indigo-600/20 p-6 rounded-2xl">
                                 <div className="flex items-center gap-3 mb-2">

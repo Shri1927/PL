@@ -5,7 +5,8 @@ import {
   Search, Filter, Eye, Compass, ShoppingBag, 
   CheckCircle, XCircle, RotateCcw, MessageSquare, 
   Clock, ArrowRight, BarChart2, Plus, FileText, 
-  DollarSign, TrendingUp, LayoutDashboard, Lock, Shield, User, Briefcase, Building, Activity, ShieldCheck
+  DollarSign, TrendingUp, LayoutDashboard, Lock, Shield, User, Briefcase, Building, Activity, ShieldCheck,
+  CreditCard, Calendar, AlertCircle, Download, History, PieChart
 } from 'lucide-react';
 import api from '../../api';
 import Sidebar from '../PremiumDashboard/Sidebar';
@@ -13,7 +14,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useWorkflow } from '../../context/WorkflowContext';
 import StageProgressStepper from '../WorkflowStages/StageProgressStepper';
 import StageCard from '../WorkflowStages/StageCard';
-import MakerApprovalPanel from '../WorkflowStages/MakerApprovalPanel';
 
 // ── Stage label map ──
 const STAGE_LABELS: Record<string, string> = {
@@ -41,7 +41,6 @@ const STATUS_FLOW = [
   'ACCEPTED',
   'AGREEMENT_EXECUTED',
   'DISBURSED',
-  'ACTIVE',
 ];
 
 const ApplicationStatus = () => {
@@ -53,7 +52,7 @@ const ApplicationStatus = () => {
   const [viewMode, setViewMode] = useState<'USER' | 'MAKER'>('USER');
   const isMaker = user?.role === 'ADMIN' || user?.role === 'MAKER' || user?.role === 'LOAN_OFFICER';
 
-  const activeStageId = stageIndex ? parseInt(stageIndex) : 1;
+  const activeStageId = Math.min(stageIndex ? parseInt(stageIndex) : 1, 9);
   const activeStage = stages.find(s => s.id === activeStageId) || stages[0];
 
   useEffect(() => {
@@ -131,6 +130,93 @@ const ApplicationStatus = () => {
   // Offer rejection reason
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
+  // Repayment & Dashboard states
+  const [emiSchedule, setEmiSchedule] = useState<any>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'overview' | 'schedule' | 'transactions' | 'prepayment'>('overview');
+  const [prepayAmount, setPrepayAmount] = useState('');
+  const [prepayType, setPrepayType] = useState('REDUCE_TENURE');
+
+  const fetchRepaymentData = useCallback(async () => {
+    if (!applicationId) return;
+    try {
+      const [emiRes, txRes] = await Promise.all([
+        api.get(`/workflow/applications/${applicationId}/emi-schedule`),
+        api.get(`/workflow/applications/${applicationId}/emi-payments`)
+      ]);
+      setEmiSchedule(emiRes.data.data);
+      setTransactions(txRes.data.data?.content || txRes.data.data || []);
+    } catch (err) {
+      console.error('Failed to load repayment details', err);
+    }
+  }, [applicationId]);
+
+  useEffect(() => {
+    if (activeStageId === 9) {
+      fetchRepaymentData();
+    }
+  }, [activeStageId, fetchRepaymentData]);
+
+  const handleRegisterMandate = async () => {
+    setActionLoading(true);
+    try {
+      await api.post(`/workflow/applications/${applicationId}/mandate/register`);
+      fetchRepaymentData();
+      await fetchFullDetails();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Mandate registration failed');
+    } finally {
+      setActionLoading(true); // Small delay simulation
+      setTimeout(() => setActionLoading(false), 1000);
+    }
+  };
+
+  const handleSimulateDebit = async () => {
+    setActionLoading(true);
+    try {
+      await api.post(`/workflow/applications/${applicationId}/emi/simulate-collection`);
+      fetchRepaymentData();
+      await fetchFullDetails();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Collection simulation failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handlePrepayment = async () => {
+    if (!prepayAmount || parseFloat(prepayAmount) <= 0) return;
+    setActionLoading(true);
+    try {
+      await api.post(`/workflow/applications/${applicationId}/prepayment`, {
+        amount: parseFloat(prepayAmount),
+        prepaymentType: prepayType
+      });
+      setPrepayAmount('');
+      fetchRepaymentData();
+      await fetchFullDetails();
+      setActiveDashboardTab('overview');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Prepayment failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleForeclosure = async () => {
+    if (!window.confirm('Are you sure you want to foreclose this loan?')) return;
+    setActionLoading(true);
+    try {
+      await api.post(`/workflow/applications/${applicationId}/foreclose`);
+      fetchRepaymentData();
+      await fetchFullDetails();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Foreclosure failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const fetchFullDetails = useCallback(async () => {
     try {
       const response = await api.get(`/workflow/applications/${applicationId}/details`);
@@ -168,8 +254,15 @@ const ApplicationStatus = () => {
     }
   };
 
-  const currentStepIndex = STATUS_FLOW.indexOf(application?.status || 'DRAFT');
-  const maxAccessibleStage = application?.allowedStage || 1;
+  let currentStepIndex = STATUS_FLOW.indexOf(application?.status || 'DRAFT');
+  if (currentStepIndex === -1) {
+    if (application?.status === 'ACTIVE' || application?.status === 'CLOSED') {
+      currentStepIndex = STATUS_FLOW.indexOf('DISBURSED');
+    } else {
+      currentStepIndex = 0;
+    }
+  }
+  const maxAccessibleStage = Math.min(application?.allowedStage || 1, 9);
 
   useEffect(() => {
     // Redirect logic: If no stage specified, default to maxAccessibleStage
@@ -594,11 +687,11 @@ const ApplicationStatus = () => {
                 <div className="h-1.5 w-32 bg-white/5 rounded-full overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
-                    animate={{ width: `${((currentStepIndex + 1) / 10) * 100}%` }}
+                    animate={{ width: `${((currentStepIndex + 1) / 9) * 100}%` }}
                     className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
                   />
                 </div>
-                <span className="text-sm font-black text-white">{Math.round(((currentStepIndex + 1) / 10) * 100)}%</span>
+                <span className="text-sm font-black text-white">{Math.round(((currentStepIndex + 1) / 9) * 100)}%</span>
               </div>
             </div>
           </div>
@@ -647,7 +740,7 @@ const ApplicationStatus = () => {
             <div className="absolute top-5 left-0 w-full h-0.5 bg-white/5 -z-0"></div>
             <motion.div 
               initial={{ width: 0 }}
-              animate={{ width: `${(currentStepIndex / 9) * 100}%` }}
+              animate={{ width: `${(currentStepIndex / 8) * 100}%` }}
               className="absolute top-5 left-0 h-0.5 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] -z-0"
             />
 
@@ -756,16 +849,10 @@ const ApplicationStatus = () => {
 
                     <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-center">
                       {maxAccessibleStage < 2 ? (
-                        isMaker ? (
-                          <div className="w-full mt-4">
-                            <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-5 py-3 rounded-xl border border-amber-400/20">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                            <p className="text-xs font-bold">Awaiting Maker Verification...</p>
-                          </div>
-                        )
+                        <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-5 py-3 rounded-xl border border-amber-400/20">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          <p className="text-xs font-bold">Awaiting Maker Verification...</p>
+                        </div>
                       ) : (
                         <>
                           <p className="text-xs text-gray-500 max-w-md font-medium">Your application has been received and approved for processing. Please proceed to the next step.</p>
@@ -1084,16 +1171,10 @@ const ApplicationStatus = () => {
                             </button>
                           </>
                         ) : (
-                          isMaker ? (
-                            <div className="w-full mt-4">
-                              <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
-                              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                              <p className="text-xs font-bold">Waiting for permission...</p>
-                            </div>
-                          )
+                          <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <p className="text-xs font-bold">Waiting for permission...</p>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1266,16 +1347,10 @@ const ApplicationStatus = () => {
                                 </button>
                               </>
                             ) : (
-                              isMaker ? (
-                                <div className="w-full mt-4">
-                                  <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                  <p className="text-xs font-bold">Waiting for credit stage to unlock...</p>
-                                </div>
-                              )
+                              <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
+                                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                <p className="text-xs font-bold">Waiting for credit stage to unlock...</p>
+                              </div>
                             )}
                           </div>
                         )}
@@ -1414,16 +1489,10 @@ const ApplicationStatus = () => {
                             </button>
                           </>
                         ) : (
-                          isMaker ? (
-                            <div className="w-full mt-4">
-                              <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
-                              <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                              <p className="text-xs font-bold">Waiting for offer generation...</p>
-                            </div>
-                          )
+                          <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-6 py-3 rounded-xl border border-amber-400/20">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <p className="text-xs font-bold">Waiting for offer generation...</p>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1711,16 +1780,10 @@ const ApplicationStatus = () => {
                             </button>
                           </>
                         ) : (
-                          isMaker ? (
-                            <div className="w-full mt-6">
-                              <MakerApprovalPanel applicationId={applicationId!} stage={{ id: activeStageId, name: STAGE_LABELS[STATUS_FLOW[activeStageId - 1]], status: 'pending' } as any} />
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-8 py-4 rounded-2xl border border-amber-400/20">
-                              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                              <p className="text-sm font-bold">Waiting for agreement package...</p>
-                            </div>
-                          )
+                          <div className="flex items-center gap-3 text-amber-400 bg-amber-400/10 px-8 py-4 rounded-2xl border border-amber-400/20">
+                            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                            <p className="text-sm font-bold">Waiting for agreement package...</p>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1780,61 +1843,357 @@ const ApplicationStatus = () => {
                     {activeStageId > maxAccessibleStage ? (
                       <AwaitingAuthorizationView stageNum={9} />
                     ) : (
-                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-center">
-                        <div className="w-20 h-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
-                          <CheckCircle size={40} />
-                        </div>
-                        <h3 className="text-xl font-black text-white mb-4 uppercase tracking-tight">Active Servicing</h3>
-                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm">
-                          Your loan is in active repayment. You can track your EMIs 
-                          and download statements from this section.
-                        </p>
-                        
-                        <button 
-                          onClick={() => navigate(`/application/${applicationId}/10`)}
-                          className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all mx-auto group"
-                        >
-                          <span>Loan Closure Details</span>
-                          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                        </button>
+                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-left">
+                        {(() => {
+                          const paidEmisCount = emiSchedule?.paidEmis || emiSchedule?.installments?.filter((i: any) => i.status === 'PAID')?.length || 0;
+                          const totalEmisCount = emiSchedule?.totalEmis || emiSchedule?.installments?.length || tenure || 0;
+                          const activeApr = application?.annualInterestRate || offerDetails?.apr || 12;
+                          
+                          const nextDueInstallment = emiSchedule?.installments?.find((i: any) => i.status === 'DUE') 
+                            || emiSchedule?.installments?.find((i: any) => i.status === 'PENDING')
+                            || emiSchedule?.installments?.find((i: any) => i.status === 'UNPAID');
+                          const nextDueDate = nextDueInstallment?.dueDate 
+                            ? new Date(nextDueInstallment.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : 'N/A';
+
+                          return (
+                            <div className="space-y-8">
+                              {/* Summary / Header inside the Stage */}
+                              <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-black/20 p-6 rounded-[24px] border border-white/5 gap-4">
+                                <div>
+                                  <div className="flex items-center gap-2 text-xs font-black text-indigo-400 uppercase tracking-widest mb-1">
+                                    <Activity size={14} className="animate-pulse" />
+                                    <span>Personal Loan Account Servicing</span>
+                                  </div>
+                                  <h3 className="text-2xl font-black text-white uppercase tracking-tight">Loan #{application?.applicationRef || 'N/A'}</h3>
+                                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                    <span className="px-2.5 py-0.5 text-[10px] font-black tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md">
+                                      {application?.status}
+                                    </span>
+                                    <span className="text-gray-700 font-bold">•</span>
+                                    <span className="text-xs text-gray-500 font-medium">Mandate: <span className="text-gray-300 font-bold">{application?.mandateStatus || 'NOT REGISTERED'}</span></span>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  {application?.mandateStatus !== 'REGISTERED' && application?.status !== 'CLOSED' && (
+                                    <button
+                                      onClick={handleRegisterMandate}
+                                      disabled={actionLoading}
+                                      className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-wider shadow-lg hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-1.5"
+                                    >
+                                      {actionLoading ? 'Processing...' : 'Register NACH'}
+                                      <ArrowRight size={12} />
+                                    </button>
+                                  )}
+                                  {application?.status === 'CLOSED' && (
+                                    <button className="px-4 py-2.5 bg-[#1e1e24] text-white border border-white/5 rounded-xl font-black text-[10px] uppercase tracking-wider hover:bg-[#16161a] transition-all flex items-center gap-1.5">
+                                      <Download size={12} />
+                                      Download NOC
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Metrics Grid */}
+                              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                                {[
+                                  { label: 'Outstanding Principal', value: `₹${(application?.outstandingPrincipal ?? principal ?? 0).toLocaleString('en-IN')}`, desc: `Total Sanctioned: ₹${principal.toLocaleString('en-IN')}`, color: 'text-indigo-400' },
+                                  { label: 'Next EMI Due', value: nextDueDate, desc: `Amount: ₹${(emiSchedule?.monthlyEmi || computedEmi || 0).toLocaleString('en-IN')}`, color: 'text-amber-400' },
+                                  { label: 'Tenure Progress', value: `${paidEmisCount} / ${totalEmisCount} EMIs`, desc: `${totalEmisCount - paidEmisCount} EMIs remaining`, color: 'text-emerald-400' },
+                                  { label: 'Interest Rate (APR)', value: `${activeApr}% p.a.`, desc: 'Fixed Annual Rate', color: 'text-rose-400' },
+                                ].map((m, i) => (
+                                  <div key={i} className="bg-black/20 p-5 rounded-[24px] border border-white/5">
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{m.label}</p>
+                                    <p className="text-xl font-black text-white">{m.value}</p>
+                                    <p className="text-[10px] text-gray-500 font-semibold mt-1">{m.desc}</p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Tabs Header */}
+                              <div className="border-b border-white/5 flex gap-6 overflow-x-auto pb-0">
+                                {[
+                                  { id: 'overview', label: 'Quick Actions', icon: Activity },
+                                  { id: 'schedule', label: 'Amortization Schedule', icon: Calendar },
+                                  { id: 'transactions', label: 'Payment History', icon: History },
+                                  { id: 'prepayment', label: 'Repayment Strategy', icon: CreditCard },
+                                ].map((tab) => {
+                                  const isSelected = activeDashboardTab === tab.id;
+                                  return (
+                                    <button
+                                      key={tab.id}
+                                      onClick={() => setActiveDashboardTab(tab.id as any)}
+                                      className={`flex items-center gap-2 pb-4 font-black text-xs uppercase tracking-wider relative shrink-0 transition-all ${
+                                        isSelected ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                                      }`}
+                                    >
+                                      <tab.icon size={14} />
+                                      {tab.label}
+                                      {isSelected && (
+                                        <motion.div 
+                                          layoutId="dashboardTabUnderline" 
+                                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" 
+                                        />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Tab Content */}
+                              <div className="bg-black/20 p-6 rounded-[24px] border border-white/5 min-h-[300px]">
+                                {activeDashboardTab === 'overview' && (
+                                  <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                      <div 
+                                        onClick={handleSimulateDebit}
+                                        className="p-5 bg-[#2a2a32]/40 border border-white/5 rounded-2xl cursor-pointer hover:border-indigo-500/50 hover:bg-[#2a2a32]/60 transition-all flex flex-col justify-between group"
+                                      >
+                                        <div>
+                                          <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400 mb-4 group-hover:scale-105 transition-transform">
+                                            <Activity size={18} />
+                                          </div>
+                                          <h4 className="font-black text-white text-xs uppercase tracking-wider mb-2">Simulate Monthly Debit</h4>
+                                          <p className="text-gray-500 text-xs font-semibold leading-relaxed">
+                                            Trigger a mock mandate debit for the current month's pending EMI installment.
+                                          </p>
+                                        </div>
+                                        <div className="mt-6 flex items-center gap-1 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                                          <span>Execute Mock Debit</span>
+                                          <ArrowRight size={10} className="group-hover:translate-x-1 transition-transform" />
+                                        </div>
+                                      </div>
+
+                                      <div 
+                                        onClick={() => setActiveDashboardTab('prepayment')}
+                                        className="p-5 bg-[#2a2a32]/40 border border-white/5 rounded-2xl cursor-pointer hover:border-indigo-500/50 hover:bg-[#2a2a32]/60 transition-all flex flex-col justify-between group"
+                                      >
+                                        <div>
+                                          <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-105 transition-transform">
+                                            <CreditCard size={18} />
+                                          </div>
+                                          <h4 className="font-black text-white text-xs uppercase tracking-wider mb-2">Make Part-Prepayment</h4>
+                                          <p className="text-gray-500 text-xs font-semibold leading-relaxed">
+                                            Pay extra principal to either reduce your EMI amount or lower your loan tenure.
+                                          </p>
+                                        </div>
+                                        <div className="mt-6 flex items-center gap-1 text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                                          <span>Prepayment Options</span>
+                                          <ArrowRight size={10} className="group-hover:translate-x-1 transition-transform" />
+                                        </div>
+                                      </div>
+
+                                      <div 
+                                        onClick={handleForeclosure}
+                                        className="p-5 bg-[#2a2a32]/40 border border-white/5 rounded-2xl cursor-pointer hover:border-rose-500/50 hover:bg-[#2a2a32]/60 transition-all flex flex-col justify-between group"
+                                      >
+                                        <div>
+                                          <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-400 mb-4 group-hover:scale-105 transition-transform">
+                                            <AlertCircle size={18} />
+                                          </div>
+                                          <h4 className="font-black text-white text-xs uppercase tracking-wider mb-2">Full Foreclosure</h4>
+                                          <p className="text-gray-500 text-xs font-semibold leading-relaxed">
+                                            Close your loan early by repaying the complete outstanding principal balance instantly.
+                                          </p>
+                                        </div>
+                                        <div className="mt-6 flex items-center gap-1 text-[10px] font-black text-rose-400 uppercase tracking-widest">
+                                          <span>Close Loan Early</span>
+                                          <ArrowRight size={10} className="group-hover:translate-x-1 transition-transform" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {activeDashboardTab === 'schedule' && (
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                      <thead>
+                                        <tr className="border-b border-white/5">
+                                          <th className="pb-4 px-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">No.</th>
+                                          <th className="pb-4 px-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Due Date</th>
+                                          <th className="pb-4 px-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Principal</th>
+                                          <th className="pb-4 px-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Interest</th>
+                                          <th className="pb-4 px-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Total EMI</th>
+                                          <th className="pb-4 px-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {!emiSchedule?.installments || emiSchedule.installments.length === 0 ? (
+                                          <tr>
+                                            <td colSpan={6} className="text-center py-8 text-xs text-gray-500 font-bold">No installments generated.</td>
+                                          </tr>
+                                        ) : (
+                                          emiSchedule.installments.map((inst: any) => (
+                                            <tr key={inst.installmentNumber} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                              <td className="py-4 px-2 text-xs font-bold text-white/90">{inst.installmentNumber}</td>
+                                              <td className="py-4 px-2 text-xs font-semibold text-gray-400">
+                                                {new Date(inst.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                              </td>
+                                              <td className="py-4 px-2 text-xs font-bold text-white/90">₹{inst.principal.toLocaleString('en-IN')}</td>
+                                              <td className="py-4 px-2 text-xs font-bold text-white/90">₹{inst.interest.toLocaleString('en-IN')}</td>
+                                              <td className="py-4 px-2 text-xs font-black text-indigo-400">₹{inst.totalEmi.toLocaleString('en-IN')}</td>
+                                              <td className="py-4 px-2">
+                                                <span className={`px-2 py-0.5 text-[9px] font-black tracking-wider uppercase rounded-md border ${
+                                                  inst.status === 'PAID' 
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                }`}>
+                                                  {inst.status}
+                                                </span>
+                                              </td>
+                                            </tr>
+                                          ))
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+
+                                {activeDashboardTab === 'transactions' && (
+                                  <div className="space-y-4">
+                                    {transactions.length === 0 ? (
+                                      <div className="text-center py-12 text-gray-500">
+                                        <History size={36} className="mx-auto mb-4 opacity-20" />
+                                        <p className="text-xs font-semibold">No transactions recorded yet.</p>
+                                      </div>
+                                    ) : (
+                                      transactions.map((tx: any) => (
+                                        <div key={tx.id} className="flex items-center justify-between p-4 bg-[#2a2a32]/20 border border-white/5 rounded-2xl hover:border-white/10 transition-all">
+                                          <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
+                                              {tx.transactionType === 'EMI_PAYMENT' ? <Calendar size={18} /> : <CreditCard size={18} />}
+                                            </div>
+                                            <div>
+                                              <h5 className="font-black text-white text-xs uppercase tracking-wider">{tx.transactionType}</h5>
+                                              <p className="text-[10px] text-gray-500 font-semibold mt-0.5">
+                                                {new Date(tx.paymentDate).toLocaleString('en-IN')} • Ref: <span className="text-indigo-400">{tx.gatewayRef}</span>
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="font-black text-white text-sm">₹{tx.amount.toLocaleString('en-IN')}</p>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Success</span>
+                                          </div>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                )}
+
+                                {activeDashboardTab === 'prepayment' && (
+                                  <div className="max-w-xl space-y-6">
+                                    <div>
+                                      <h4 className="font-black text-white text-sm uppercase tracking-wider mb-1">Make Part-Prepayment</h4>
+                                      <p className="text-gray-500 text-xs font-semibold">Accelerate your loan closure by paying additional principal balances.</p>
+                                    </div>
+
+                                    <div className="space-y-5">
+                                      <div>
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Prepayment Amount (₹)</label>
+                                        <input
+                                          type="number"
+                                          value={prepayAmount}
+                                          onChange={(e) => setPrepayAmount(e.target.value)}
+                                          className="w-full h-12 px-4 bg-[#2a2a32]/20 border border-white/5 focus:border-indigo-500 text-white rounded-xl focus:outline-none font-bold text-sm transition-all"
+                                          placeholder="e.g. 50000"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Strategy Type</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                          <div
+                                            onClick={() => setPrepayType('REDUCE_TENURE')}
+                                            className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                                              prepayType === 'REDUCE_TENURE' 
+                                                ? 'border-indigo-500 bg-indigo-500/5 text-white' 
+                                                : 'border-white/5 bg-[#2a2a32]/20 hover:border-white/10 text-gray-400'
+                                            }`}
+                                          >
+                                            <h5 className="font-black text-xs uppercase tracking-wider mb-1">Reduce Tenure</h5>
+                                            <p className="text-[10px] text-gray-500 font-semibold leading-relaxed">Keep your EMI same, finish your loan early.</p>
+                                          </div>
+                                          <div
+                                            onClick={() => setPrepayType('REDUCE_EMI')}
+                                            className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                                              prepayType === 'REDUCE_EMI' 
+                                                ? 'border-indigo-500 bg-indigo-500/5 text-white' 
+                                                : 'border-white/5 bg-[#2a2a32]/20 hover:border-white/10 text-gray-400'
+                                            }`}
+                                          >
+                                            <h5 className="font-black text-xs uppercase tracking-wider mb-1">Reduce EMI</h5>
+                                            <p className="text-[10px] text-gray-500 font-semibold leading-relaxed">Keep your tenure same, lower monthly burden.</p>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        onClick={handlePrepayment}
+                                        disabled={actionLoading || !prepayAmount || parseFloat(prepayAmount) <= 0}
+                                        className="w-full h-12 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 disabled:opacity-50 transition-all"
+                                      >
+                                        {actionLoading ? 'Processing...' : `Pay ₹${parseFloat(prepayAmount || '0').toLocaleString('en-IN')} Now`}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Compliance Grid at Bottom */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                                <div className="bg-black/10 p-5 rounded-[24px] border border-white/5">
+                                  <h4 className="font-black text-white text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <ShieldCheck size={14} className="text-emerald-400" />
+                                    RBI Compliance & MITC
+                                  </h4>
+                                  <ul className="space-y-2 text-xs font-semibold text-gray-500 list-disc list-inside">
+                                    <li>Statements generated within 24 hours.</li>
+                                    <li>Zero foreclosure fees on floating rate plans.</li>
+                                    <li>NOC dispatched within 7 working days of close.</li>
+                                    <li>3 days standard grace buffer before late fees apply.</li>
+                                  </ul>
+                                </div>
+
+                                <div className="bg-black/10 p-5 rounded-[24px] border border-white/5">
+                                  <h4 className="font-black text-white text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <PieChart size={14} className="text-indigo-400" />
+                                    Credit Bureau Reporting
+                                  </h4>
+                                  <div className="space-y-3">
+                                    <div className="flex justify-between items-center text-xs font-bold">
+                                      <span className="text-gray-400">CIBIL Status</span>
+                                      <span className="text-emerald-400 uppercase tracking-wider">Active & Current</span>
+                                    </div>
+                                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                      <div className="h-full bg-indigo-500 w-full" />
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 font-semibold italic">
+                                      Timely EMI servicing reinforces your financial profile. Reports dispatched to CIBIL & Experian every month.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="bg-black/10 p-5 rounded-[24px] border border-white/5">
+                                  <h4 className="font-black text-white text-xs uppercase tracking-wider mb-2">Dedicated Support Desk</h4>
+                                  <p className="text-gray-500 text-xs font-semibold leading-relaxed mb-4">
+                                    Connect directly with our elite servicing officers for assistance.
+                                  </p>
+                                  <div className="space-y-1 text-xs font-bold text-gray-300">
+                                    <p>Email: <span className="text-indigo-400">servicing@fintechlos.com</span></p>
+                                    <p>Hotline: <span className="text-indigo-400">1800-LOAN-SERV</span></p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
                 )}
 
-                {activeStageId === 10 && (
-                  <div className="p-8">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3.5 bg-emerald-500/10 text-emerald-400 rounded-2xl">
-                        <CheckCircle size={22} />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Loan Closure</h2>
-                        <p className="text-gray-500 font-medium text-xs">Final status and NOC</p>
-                      </div>
-                    </div>
 
-                    {activeStageId > maxAccessibleStage ? (
-                      <AwaitingAuthorizationView stageNum={10} />
-                    ) : (
-                      <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-center">
-                        <div className="w-20 h-20 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-emerald-400">
-                          <CheckCircle size={40} />
-                        </div>
-                        <h3 className="text-xl font-black text-white mb-4 uppercase tracking-tight">Loan Closed</h3>
-                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium text-sm">
-                          Congratulations! Your loan has been successfully closed. 
-                          You can download your No Objection Certificate (NOC) now.
-                        </p>
-                        
-                        <button className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all mx-auto group">
-                          <FileText size={18} />
-                          <span>Download NOC</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
               </motion.div>
             </AnimatePresence>
           </div>

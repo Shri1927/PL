@@ -59,15 +59,7 @@ const Navbar = () => {
                     <span>Admin</span>
                   </Link>
                 )}
-                {(user?.role === 'LOAN_OFFICER' || user?.role === 'RM') && (
-                  <Link
-                    to="/maker"
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-gray-400 hover:text-white hover:bg-gray-800/30 transition-all"
-                  >
-                    <BarChart2 size={18} />
-                    <span>Staff Portal</span>
-                  </Link>
-                )}
+
 
                 {/* User Profile & Logout */}
                 <div className="flex items-center gap-3 pl-4 border-l border-gray-800/50">

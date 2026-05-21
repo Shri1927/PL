@@ -77,8 +77,6 @@ ALTER TABLE loan_applications ADD COLUMN IF NOT EXISTS allowed_stage INT DEFAULT
 
 -- Fix for enum constraint issues when new statuses are added (e.g., MAKER_CHECKED)
 ALTER TABLE loan_applications DROP CONSTRAINT IF EXISTS loan_applications_status_check;
-ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_new_status_check;
-ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_previous_status_check;
 
 CREATE TABLE IF NOT EXISTS kyc_details (
     id BIGSERIAL PRIMARY KEY,
@@ -241,6 +239,10 @@ CREATE TABLE IF NOT EXISTS loan_audit_logs (
     previous_hash VARCHAR(64),
     current_hash VARCHAR(64)
 );
+
+-- Fix for enum constraint issues when new statuses are added
+ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_new_status_check;
+ALTER TABLE loan_audit_logs DROP CONSTRAINT IF EXISTS loan_audit_logs_previous_status_check;
 
 -- View for submitted applications with all relevant details for makers
 DROP VIEW IF EXISTS submitted_applications_view CASCADE;

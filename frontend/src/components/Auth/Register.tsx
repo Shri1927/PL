@@ -23,6 +23,7 @@ const Register = () => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetchingOtp, setFetchingOtp] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -46,6 +47,24 @@ const Register = () => {
       setError(err.response?.data?.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGetOtp = async () => {
+    setError('');
+    setFetchingOtp(true);
+
+    try {
+      const response = await api.get(`/auth/get-otp/${formData.mobile}`);
+      if (response.data.data.found) {
+        setOtp(response.data.data.otp);
+      } else {
+        setError('No OTP found. Please send OTP first.');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to retrieve OTP');
+    } finally {
+      setFetchingOtp(false);
     }
   };
 
@@ -239,8 +258,18 @@ const Register = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Security Code</label>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Security Code</label>
+                        <button
+                          type="button"
+                          onClick={handleGetOtp}
+                          disabled={fetchingOtp}
+                          className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-[0.2em] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {fetchingOtp ? 'Retrieving...' : 'Get OTP'}
+                        </button>
+                      </div>
                       <div className="relative group">
                         <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors">
                           <Shield size={18} />
@@ -256,7 +285,7 @@ const Register = () => {
                         />
                       </div>
                     </div>
-                    <p className="text-gray-500 text-sm font-medium ml-1">Check your device for the 6-digit code sent to {formData.mobile}.</p>
+                    <p className="text-gray-500 text-sm font-medium">Check your device for the 6-digit code sent to {formData.mobile}.</p>
                   </motion.div>
                 )}
 

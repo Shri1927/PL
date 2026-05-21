@@ -44,6 +44,21 @@ public class AuthService {
         redisTemplate.delete(verifyAttemptKey(request.getMobile()));
     }
 
+    public OtpResponse getOtp(String mobile) {
+        String key = "otp:" + mobile;
+        String otp = redisTemplate.opsForValue().get(key);
+        OtpResponse response = new OtpResponse();
+        if (otp != null) {
+            response.setOtp(otp);
+            response.setFound(true);
+            log.info("[OTP] Retrieved OTP for mobile: {}", mobile);
+        } else {
+            response.setFound(false);
+            log.warn("[OTP] No OTP found for mobile: {}", mobile);
+        }
+        return response;
+    }
+
     @Transactional
     public OtpVerifyResponse verifyOtp(OtpVerifyRequest request) {
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey(request.getMobile())))) {

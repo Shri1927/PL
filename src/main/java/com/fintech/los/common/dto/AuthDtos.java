@@ -79,4 +79,10 @@ public final class AuthDtos {
         private String mobile;
         private String email;
     }
+
+    @Data
+    public static class OtpResponse {
+        private String otp;
+        private boolean found;
+    }
 }

@@ -50,7 +50,6 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({ applica
       case 7: return "Offer Accepted";
       case 8: return "Agreement Signed";
       case 9: return "Funds Disbursed";
-      case 10: return "Loan Active";
       default: return `Stage ${stage}`;
     }
   };
@@ -223,7 +222,7 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({ applica
               <div className="w-2 h-2 rounded-full bg-[#eab308] animate-pulse" />
               Awaiting Maker Verification for {getStageName(nextStage)}
             </div>
-            {onApproveStage && nextStage <= 10 && (
+            {onApproveStage && nextStage <= 9 && (
               <button
                 onClick={() => onApproveStage(application.id, nextStage)}
                 className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2 uppercase text-xs tracking-widest"

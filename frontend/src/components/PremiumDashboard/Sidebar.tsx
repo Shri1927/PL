@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Briefcase, CreditCard, Users, BarChart2, Settings, Menu, LogOut, Phone, Mail, User as UserIcon, Shield } from 'lucide-react';
+import { Home, Briefcase, BarChart2, Menu, LogOut, Phone, Mail, User as UserIcon, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,7 +17,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
     { icon: Home, label: 'Home', action: () => onViewChange('home'), active: activeView === 'home' },
     { icon: Briefcase, label: 'Queue', action: () => onViewChange('queue'), active: activeView === 'queue' },
     { icon: BarChart2, label: 'Analytics', action: () => onViewChange('analytics'), active: activeView === 'analytics' },
-    { icon: Settings, label: 'Settings', action: () => navigate('/settings'), active: false },
   ];
 
   const handleLogout = () => {
