@@ -33,13 +33,6 @@ public class AdminUnderwriterController {
         return ok(service.listApplications(pageable), "Applications fetched");
     }
 
-    @GetMapping("/underwriter/manual-queue")
-    @PreAuthorize("hasAnyRole('ADMIN','UNDERWRITER')")
-    public ApiResponse<Page<LoanApplication>> manualQueue(@RequestParam(defaultValue = "0") int page,
-                                                          @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return ok(service.listManualReviewQueue(pageable), "Manual queue fetched");
-    }
 
     @GetMapping("/submitted-applications")
     @PreAuthorize("hasAnyRole('ADMIN','UNDERWRITER','LOAN_OFFICER','RM','CREDIT_ANALYST')")

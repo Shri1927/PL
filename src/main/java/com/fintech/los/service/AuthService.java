@@ -30,6 +30,8 @@ public class AuthService {
     private static final int MAX_OTP_VERIFY_ATTEMPTS = 3;
     private static final int OTP_LOCK_MINUTES = 10;
     private static final int MAX_OTP_SEND_PER_MINUTE = 5;
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final int LOGIN_LOCK_MINUTES = 10;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -138,14 +140,19 @@ public class AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         log.info("[AUTH] Attempting login for mobile: '{}'", request.getMobile());
+        enforceLoginRateLimit(request.getMobile());
         User user = userRepository.findByMobile(request.getMobile())
                 .orElseThrow(() -> {
+                    incrementLoginFailures(request.getMobile());
                     log.error("[AUTH] Login failed: User not found for mobile '{}'", request.getMobile());
-                    return new BusinessException("User not found");
+                    return new BusinessException("Invalid credentials");
                 });
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            incrementLoginFailures(request.getMobile());
             throw new BusinessException("Invalid credentials");
         }
+        // Successful login — clear failure counter
+        redisTemplate.delete(loginFailKey(request.getMobile()));
         return buildTokens(user);
     }
 
@@ -212,11 +219,38 @@ public class AuthService {
         }
     }
 
+    private void enforceLoginRateLimit(String mobile) {
+        String lockKey = loginLockKey(mobile);
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+            throw new BusinessException("Account temporarily locked due to too many failed login attempts. Try again in " + LOGIN_LOCK_MINUTES + " minutes.");
+        }
+    }
+
+    private void incrementLoginFailures(String mobile) {
+        String failKey = loginFailKey(mobile);
+        Long failures = redisTemplate.opsForValue().increment(failKey);
+        redisTemplate.expire(failKey, LOGIN_LOCK_MINUTES, TimeUnit.MINUTES);
+        if (failures != null && failures >= MAX_LOGIN_ATTEMPTS) {
+            redisTemplate.opsForValue().set(loginLockKey(mobile), "1", LOGIN_LOCK_MINUTES, TimeUnit.MINUTES);
+            redisTemplate.delete(failKey);
+            log.warn("[AUTH] Account locked for mobile: {} after {} failed attempts", mobile, MAX_LOGIN_ATTEMPTS);
+            throw new BusinessException("Account temporarily locked due to too many failed login attempts. Try again in " + LOGIN_LOCK_MINUTES + " minutes.");
+        }
+    }
+
     private String verifyAttemptKey(String mobile) {
         return "otp:verify:attempt:" + mobile;
     }
 
     private String lockKey(String mobile) {
         return "otp:verify:lock:" + mobile;
+    }
+
+    private String loginFailKey(String mobile) {
+        return "login:fail:" + mobile;
+    }
+
+    private String loginLockKey(String mobile) {
+        return "login:lock:" + mobile;
     }
 }

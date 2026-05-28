@@ -1840,8 +1840,32 @@ const ApplicationStatus = () => {
                       </div>
                     </div>
 
-                    {activeStageId > maxAccessibleStage ? (
-                      <AwaitingAuthorizationView stageNum={9} />
+                    {activeStageId > maxAccessibleStage || (application?.status !== 'DISBURSED' && application?.status !== 'ACTIVE') ? (
+                      <div className="bg-[#2a2a32] border border-white/5 p-10 rounded-[40px] text-center">
+                        <div className="w-24 h-24 bg-amber-500/10 rounded-[32px] flex items-center justify-center mx-auto mb-6 text-amber-400">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                            className="flex items-center justify-center"
+                          >
+                            <Clock size={48} />
+                          </motion.div>
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-4">Awaiting Disbursement Approval</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-8 font-medium leading-relaxed text-sm">
+                          Your signed loan agreement is currently being reviewed by our Checker team for final disbursement approval. 
+                          Once approved, your funds will be transferred and your active loan repayment dashboard will be unlocked.
+                        </p>
+                        <div className="flex justify-center gap-4">
+                          <button 
+                            onClick={fetchFullDetails}
+                            className="px-8 py-4 bg-[#1e1e24] text-white rounded-2xl font-black text-xs uppercase tracking-widest border border-white/5 hover:bg-[#16161a] transition-all flex items-center gap-2"
+                          >
+                            <RotateCcw size={16} />
+                            Check Status
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <div className="bg-[#2a2a32] border border-white/5 p-8 rounded-[32px] text-left">
                         {(() => {

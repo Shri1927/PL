@@ -19,8 +19,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
     { icon: BarChart2, label: 'Analytics', action: () => onViewChange('analytics'), active: activeView === 'analytics' },
   ];
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

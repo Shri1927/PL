@@ -16,13 +16,14 @@ public final class AuthDtos {
     @Data
     public static class SendOtpRequest {
         @NotBlank
-        @Pattern(regexp = "^[0-9]{10}$")
+        @Pattern(regexp = "^[6-9][0-9]{9}$", message = "Invalid mobile number. Must be 10 digits and start with 6, 7, 8, or 9.")
         private String mobile;
     }
 
     @Data
     public static class RegisterProfileRequest {
         @NotBlank
+        @Pattern(regexp = "^[6-9][0-9]{9}$", message = "Invalid mobile number. Must be 10 digits and start with 6, 7, 8, or 9.")
         private String mobile;
         @NotBlank
         private String fullName;
@@ -41,6 +42,7 @@ public final class AuthDtos {
     @Data
     public static class LoginRequest {
         @NotBlank
+        @Pattern(regexp = "^[6-9][0-9]{9}$", message = "Invalid mobile number. Must be 10 digits and start with 6, 7, 8, or 9.")
         private String mobile;
         @NotBlank
         private String password;
@@ -49,6 +51,7 @@ public final class AuthDtos {
     @Data
     public static class OtpVerifyRequest {
         @NotBlank
+        @Pattern(regexp = "^[6-9][0-9]{9}$", message = "Invalid mobile number. Must be 10 digits and start with 6, 7, 8, or 9.")
         private String mobile;
         @NotBlank
         private String otp;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api';
@@ -9,16 +9,20 @@ import { Input } from '../../ui/Input';
 import heroImage from '../../assets/hero.png';
 
 const Register = () => {
-  const [step, setStep] = useState<'mobile' | 'otp' | 'profile'>('mobile');
-  const [formData, setFormData] = useState({
-    mobile: '',
-    fullName: '',
-    email: '',
-    dob: '',
-    city: '',
-    employmentType: 'SALARIED',
-    password: '',
-    confirmPassword: '',
+  const [step, setStep] = useState<'mobile' | 'otp' | 'profile'>(() => {
+    return (sessionStorage.getItem('register_step') as any) || 'mobile';
+  });
+  const [formData, setFormData] = useState(() => {
+    return {
+      mobile: sessionStorage.getItem('register_mobile') || '',
+      fullName: '',
+      email: '',
+      dob: '',
+      city: '',
+      employmentType: 'SALARIED',
+      password: '',
+      confirmPassword: '',
+    };
   });
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
@@ -26,6 +30,15 @@ const Register = () => {
   const [fetchingOtp, setFetchingOtp] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Sync state to sessionStorage whenever it changes to ensure persistence across page refreshes (BUG-002)
+  useEffect(() => {
+    sessionStorage.setItem('register_step', step);
+  }, [step]);
+
+  useEffect(() => {
+    sessionStorage.setItem('register_mobile', formData.mobile);
+  }, [formData.mobile]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -38,6 +51,14 @@ const Register = () => {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Strict client-side mobile number validation (BUG-001 & BUG-003)
+    const mobileRegex = /^[6-9][0-9]{9}$/;
+    if (!mobileRegex.test(formData.mobile)) {
+      setError('Invalid mobile number. Must be exactly 10 digits and start with 6, 7, 8, or 9.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -81,7 +102,11 @@ const Register = () => {
 
       if (response.data.data.existingUser && response.data.data.authResponse) {
         const authData = response.data.data.authResponse;
-        login(authData.accessToken, {
+        // Clean up transient registration storage
+        sessionStorage.removeItem('register_step');
+        sessionStorage.removeItem('register_mobile');
+        // Tokens are now in HttpOnly cookies — only pass the profile to context
+        login({
           userId: authData.userId,
           role: authData.role,
           name: `User ${authData.userId}`,
@@ -120,7 +145,11 @@ const Register = () => {
       });
 
       const data = response.data.data;
-      login(data.accessToken, {
+      // Clean up transient registration storage
+      sessionStorage.removeItem('register_step');
+      sessionStorage.removeItem('register_mobile');
+      // Tokens are now in HttpOnly cookies — only pass the profile to context
+      login({
         userId: data.userId,
         role: data.role,
         name: formData.fullName,

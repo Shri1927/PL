@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.fintech.los.service.AuthServiceLoginRateLimitTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.402 s -- in com.fintech.los.service.AuthServiceLoginRateLimitTest

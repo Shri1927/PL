@@ -59,7 +59,32 @@ public class MakerCheckerController {
     }
 
     @GetMapping("/checkers")
-    public ApiResponse<List<User>> getAvailableCheckers(@RequestParam com.fintech.los.domain.loan.LoanEnums.UserRole role) {
+    public ApiResponse<List<User>> getAvailableCheckers(
+            @RequestParam(required = false) com.fintech.los.domain.loan.LoanEnums.UserRole role,
+            @RequestParam(required = false) java.math.BigDecimal amount) {
+        if (amount != null) {
+            com.fintech.los.domain.loan.LoanEnums.Tier tier = makerService.getTierForApplicationAmount(amount);
+            com.fintech.los.domain.loan.LoanEnums.UserRole requiredRole = makerService.getRequiredRoleForTier(tier);
+            if (requiredRole == null) {
+                return ok(List.of(), "No checkers required (auto-approved)");
+            }
+            List<User> checkers = userRepository.findByRole(requiredRole);
+            List<User> eligibleCheckers = checkers.stream()
+                    .filter(u -> u.getApprovalLimit() == null || u.getApprovalLimit().compareTo(amount) >= 0)
+                    .toList();
+            if (eligibleCheckers.isEmpty() && !checkers.isEmpty()) {
+                java.math.BigDecimal maxLimit = checkers.stream()
+                        .map(User::getApprovalLimit)
+                        .filter(java.util.Objects::nonNull)
+                        .max(java.math.BigDecimal::compareTo)
+                        .orElse(java.math.BigDecimal.ZERO);
+                
+                eligibleCheckers = checkers.stream()
+                        .filter(u -> u.getApprovalLimit() != null && u.getApprovalLimit().compareTo(maxLimit) == 0)
+                        .toList();
+            }
+            return ok(eligibleCheckers, "Available checkers for amount fetched");
+        }
         return ok(userRepository.findByRole(role), "Available checkers fetched");
     }
 

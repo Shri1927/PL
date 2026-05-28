@@ -25,6 +25,7 @@ public class MakerService {
     private final TierRoutingService tierRoutingService;
     private final LoanAuditService auditService;
     private final MisAlertService misAlertService;
+    private final LoanWorkflowService loanWorkflowService;
 
     @Transactional
     public LoanApplication submitApplication(LoanApplication application, User maker) {
@@ -123,23 +124,49 @@ public class MakerService {
         application.setSlaDeadline(LocalDateTime.now().plusDays(config.getSlaWorkingDays()));
 
         if (tier == Tier.TIER_1) {
-            // Tier 1: System is the checker (Auto-approval after Maker recommendation)
-            application.setStatus(ApplicationStatus.APPROVED);
-            application.setCurrentAssignedTo(null);
-            LoanApplication savedApp = applicationRepository.save(application);
+            // Tier 1: System is the checker (Auto-approval or Auto-disbursement after Maker recommendation)
+            boolean isDisbursementApproval = previousStatus == ApplicationStatus.AGREEMENT_EXECUTED;
             
-            // Log with previous status
-            LoanAuditLog log = new LoanAuditLog();
-            log.setApplicationId(savedApp.getId());
-            log.setActorId(maker.getId());
-            log.setActorRole(maker.getRole());
-            log.setAction("AUTO_APPROVED_TIER1");
-            log.setPreviousStatus(previousStatus);
-            log.setNewStatus(savedApp.getStatus());
-            auditService.logManualAction(log);
-            
-            misAlertService.sendTier1Alert(savedApp);
-            return savedApp;
+            if (isDisbursementApproval) {
+                com.fintech.los.common.dto.LoanWorkflowDtos.DisbursementRequest disbReq = 
+                    new com.fintech.los.common.dto.LoanWorkflowDtos.DisbursementRequest();
+                disbReq.setBankAccount(application.getBankAccountNumber());
+                disbReq.setIfsc(application.getBankIfsc());
+                
+                loanWorkflowService.disburse(application.getId(), disbReq);
+                
+                // Fetch updated app
+                LoanApplication savedApp = applicationRepository.findById(application.getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+                
+                LoanAuditLog log = new LoanAuditLog();
+                log.setApplicationId(savedApp.getId());
+                log.setActorId(maker.getId());
+                log.setActorRole(maker.getRole());
+                log.setAction("AUTO_DISBURSED_TIER1");
+                log.setPreviousStatus(previousStatus);
+                log.setNewStatus(savedApp.getStatus());
+                auditService.logManualAction(log);
+                
+                return savedApp;
+            } else {
+                application.setStatus(ApplicationStatus.APPROVED);
+                application.setCurrentAssignedTo(null);
+                LoanApplication savedApp = applicationRepository.save(application);
+                
+                // Log with previous status
+                LoanAuditLog log = new LoanAuditLog();
+                log.setApplicationId(savedApp.getId());
+                log.setActorId(maker.getId());
+                log.setActorRole(maker.getRole());
+                log.setAction("AUTO_APPROVED_TIER1");
+                log.setPreviousStatus(previousStatus);
+                log.setNewStatus(savedApp.getStatus());
+                auditService.logManualAction(log);
+                
+                misAlertService.sendTier1Alert(savedApp);
+                return savedApp;
+            }
         } else {
             // Tier 2, 3, 4: Requires human checker
             if (checkerId == null) {
@@ -168,6 +195,10 @@ public class MakerService {
 
     public com.fintech.los.domain.loan.LoanEnums.Tier getTierForApplication(LoanApplication application) {
         return tierRoutingService.determineTier(application.getRequestedAmount());
+    }
+
+    public com.fintech.los.domain.loan.LoanEnums.Tier getTierForApplicationAmount(java.math.BigDecimal amount) {
+        return tierRoutingService.determineTier(amount);
     }
 
     public com.fintech.los.domain.loan.LoanEnums.UserRole getRequiredRoleForTier(com.fintech.los.domain.loan.LoanEnums.Tier tier) {

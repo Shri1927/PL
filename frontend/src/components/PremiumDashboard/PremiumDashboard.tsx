@@ -24,6 +24,45 @@ const PremiumDashboard = () => {
   const [fetchingDetail, setFetchingDetail] = useState(false);
   const [actioningTask, setActioningTask] = useState<any | null>(null);
   const [remarks, setRemarks] = useState('');
+  const [availableCheckers, setAvailableCheckers] = useState<any[]>([]);
+  const [selectedCheckerId, setSelectedCheckerId] = useState<string>('');
+  const [loadingCheckers, setLoadingCheckers] = useState<boolean>(false);
+  const [showCheckerSelector, setShowCheckerSelector] = useState<boolean>(false);
+
+  const fetchCheckersForAmount = async (amount: number) => {
+    try {
+      setLoadingCheckers(true);
+      const response = await api.get(`/maker-checker/checkers?amount=${amount}`);
+      const checkersList = response.data.data || [];
+      setAvailableCheckers(checkersList);
+      if (checkersList.length > 0) {
+        setSelectedCheckerId(checkersList[0].id.toString());
+      } else {
+        setSelectedCheckerId('');
+      }
+    } catch (error) {
+      console.error('Failed to load checkers', error);
+      setAvailableCheckers([]);
+      setSelectedCheckerId('');
+    } finally {
+      setLoadingCheckers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (actioningTask) {
+      const isMakerAction = !actioningTask.applicationId;
+      const currentStage = actioningTask.allowedStage || actioningTask.allowed_stage || 1;
+      if (isMakerAction && currentStage >= 9) {
+        const amt = actioningTask.requestedAmount || actioningTask.requested_amount || 0;
+        fetchCheckersForAmount(amt);
+      }
+    } else {
+      setAvailableCheckers([]);
+      setSelectedCheckerId('');
+      setShowCheckerSelector(false);
+    }
+  }, [actioningTask]);
 
   const getStageName = (stage: number) => {
     switch(stage) {
@@ -157,16 +196,16 @@ const PremiumDashboard = () => {
       if (isMakerAction) {
         // Maker actions on LoanApplication
         if (action === 'approve') {
-          // Default maker "approval" is recommending to a checker
-          // For simplicity, we'll try to find a default checker or ask for one
-          // But based on user request, let's just use the recommend endpoint
-          // Note: This might need a checkerId, we'll use a placeholder or handle it
-          const checkersRes = await api.get('/maker-checker/checkers?role=BRANCH_MANAGER');
-          const checkerId = checkersRes.data.data?.[0]?.id;
-          if (!checkerId) throw new Error('No available checkers found');
-          
+          const amt = actioningTask.requestedAmount || actioningTask.requested_amount || 0;
+          const isTier1 = amt <= 200000;
+
+          if (!isTier1 && !selectedCheckerId) {
+            alert('Please select an eligible checker.');
+            return;
+          }
+
           await api.post(`/maker-checker/loans/${loanId}/recommend`, { 
-            checkerId, 
+            checkerId: isTier1 ? null : parseInt(selectedCheckerId), 
             remarks: remarks || 'Recommended from premium dashboard' 
           });
         } else {
@@ -414,7 +453,7 @@ const PremiumDashboard = () => {
                           animate={{ opacity: 1, height: 'auto' }}
                           className="mt-6 pt-6 border-t border-gray-800"
                         >
-                          {(task.allowedStage || task.allowed_stage || 1) < 9 ? (
+                          {!task.applicationId && (task.allowedStage || task.allowed_stage || 1) < 9 ? (
                             <div className="space-y-4">
                               <div className="bg-indigo-600/10 border border-indigo-600/20 p-6 rounded-2xl">
                                 <div className="flex items-center gap-3 mb-2">
@@ -450,40 +489,136 @@ const PremiumDashboard = () => {
                             </div>
                           ) : (
                             <>
-                              <textarea
-                                className="w-full bg-[#16161a] border border-gray-800 rounded-2xl p-4 text-sm text-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none mb-4"
-                                placeholder="Enter remarks for your decision..."
-                                rows={3}
-                                value={remarks}
-                                onChange={(e) => setRemarks(e.target.value)}
-                              />
-                              <div className="flex gap-3">
-                                {/* Actions for both applications and tasks */}
-                                <button 
-                                  onClick={() => handleAction('approve')}
-                                  className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all"
-                                >
-                                  <CheckCircle size={18} /> Approve
-                                </button>
-                                <button 
-                                  onClick={() => handleAction('reject')}
-                                  className="flex items-center gap-2 px-6 py-3 bg-rose-600 text-white rounded-xl font-bold text-sm hover:bg-rose-700 transition-all"
-                                >
-                                  <XCircle size={18} /> Reject
-                                </button>
-                                <button 
-                                  onClick={() => handleAction('return')}
-                                  className="flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-all"
-                                >
-                                  <RotateCcw size={18} /> Return
-                                </button>
-                                <button 
-                                  onClick={() => setActioningTask(null)}
-                                  className="px-6 py-3 text-gray-500 font-bold hover:text-white transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
+                            <>
+                              {!task.applicationId && !showCheckerSelector ? (
+                                <div className="space-y-4">
+                                  <div className="bg-indigo-600/10 border border-indigo-600/20 p-6 rounded-2xl">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <ShieldCheck size={20} className="text-indigo-400" />
+                                      <h4 className="text-white font-bold">Disbursement Approval Required</h4>
+                                    </div>
+                                    <p className="text-sm text-gray-400">
+                                      The legal agreement has been executed. Before funds can be disbursed, the application must be submitted for final disbursement approval.
+                                    </p>
+                                  </div>
+                                  <div className="flex gap-3">
+                                    {(task.requestedAmount || task.requested_amount || 0) <= 200000 ? (
+                                      <button 
+                                        onClick={() => handleAction('approve')}
+                                        className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all"
+                                      >
+                                        <CheckCircle size={18} />
+                                        Submit for Auto-Approval
+                                      </button>
+                                    ) : (
+                                      <button 
+                                        onClick={() => setShowCheckerSelector(true)}
+                                        className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all"
+                                      >
+                                        <ArrowRight size={18} />
+                                        Send to Checker
+                                      </button>
+                                    )}
+                                    <button 
+                                      onClick={() => setActioningTask(null)}
+                                      className="px-6 py-4 text-gray-500 font-bold hover:text-white transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  {!task.applicationId ? (
+                                    <div className="mb-4">
+                                      {loadingCheckers ? (
+                                        <div className="text-center py-4">
+                                          <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-2"></div>
+                                          <p className="text-xs ui-label-uppercase ui-text-body">Loading eligible checkers...</p>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          <label className="text-xs font-bold text-gray-400 block mb-1">Select Checker for Approval (Filtered by Amount)</label>
+                                          <select
+                                            className="w-full bg-[#16161a] border border-gray-800 rounded-2xl p-4 text-sm text-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none mb-4"
+                                            value={selectedCheckerId}
+                                            onChange={(e) => setSelectedCheckerId(e.target.value)}
+                                          >
+                                            {availableCheckers.length === 0 ? (
+                                              <option value="">No eligible checkers found for this amount</option>
+                                            ) : (
+                                              availableCheckers.map(checker => (
+                                                <option key={checker.id} value={checker.id}>
+                                                  {checker.fullName} ({checker.role.replace(/_/g, ' ')}) - Limit: ₹{checker.approvalLimit?.toLocaleString() || 'Unlimited'}
+                                                </option>
+                                              ))
+                                            )}
+                                          </select>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null}
+
+                                  <textarea
+                                    className="w-full bg-[#16161a] border border-gray-800 rounded-2xl p-4 text-sm text-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none mb-4"
+                                    placeholder="Enter remarks for your decision..."
+                                    rows={3}
+                                    value={remarks}
+                                    onChange={(e) => setRemarks(e.target.value)}
+                                  />
+                                  <div className="flex gap-3">
+                                    {!task.applicationId ? (
+                                      <>
+                                        <button 
+                                          onClick={() => handleAction('approve')}
+                                          disabled={availableCheckers.length === 0}
+                                          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:pointer-events-none"
+                                        >
+                                          <CheckCircle size={18} /> 
+                                          Send to Checker for Approval
+                                        </button>
+                                        <button 
+                                          onClick={() => {
+                                            setShowCheckerSelector(false);
+                                            setRemarks('');
+                                          }}
+                                          className="px-6 py-3 text-gray-500 font-bold hover:text-white transition-colors"
+                                        >
+                                          Back
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button 
+                                          onClick={() => handleAction('approve')}
+                                          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all"
+                                        >
+                                          <CheckCircle size={18} /> Approve
+                                        </button>
+                                        <button 
+                                          onClick={() => handleAction('reject')}
+                                          className="flex items-center gap-2 px-6 py-3 bg-rose-600 text-white rounded-xl font-bold text-sm hover:bg-rose-700 transition-all"
+                                        >
+                                          <XCircle size={18} /> Reject
+                                        </button>
+                                        <button 
+                                          onClick={() => handleAction('return')}
+                                          className="flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-all"
+                                        >
+                                          <RotateCcw size={18} /> Send back to Maker
+                                        </button>
+                                        <button 
+                                          onClick={() => setActioningTask(null)}
+                                          className="px-6 py-3 text-gray-500 font-bold hover:text-white transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </>
                             </>
                           )}
                         </motion.div>

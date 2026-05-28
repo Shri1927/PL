@@ -19,6 +19,13 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const mobileRegex = /^[6-9][0-9]{9}$/;
+    if (!mobileRegex.test(mobile)) {
+      setError('Invalid mobile number. Must be 10 digits and start with 6, 7, 8, or 9.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -28,7 +35,9 @@ const Login = () => {
       });
 
       const data = response.data.data;
-      login(data.accessToken, {
+      // Tokens are now in HttpOnly cookies set by the server.
+      // We only pass the public profile data to the context.
+      login({
         userId: data.userId,
         role: data.role,
         name: data.fullName,
@@ -53,6 +62,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#0f0f12] flex items-center justify-center p-4 md:p-8 font-sans">

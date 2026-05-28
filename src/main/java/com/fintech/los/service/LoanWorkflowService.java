@@ -349,7 +349,7 @@ public class LoanWorkflowService {
     @Transactional
     public Disbursement disburse(Long applicationId, DisbursementRequest req) {
         LoanApplication app = getApplication(applicationId);
-        if (app.getStatus() != ApplicationStatus.AGREEMENT_EXECUTED) {
+        if (app.getStatus() != ApplicationStatus.AGREEMENT_EXECUTED && app.getStatus() != ApplicationStatus.UNDER_REVIEW) {
             throw new BusinessException("Disbursement requires executed agreement");
         }
         LoanOffer offer = loanOfferRepository.findByApplicationId(applicationId).orElseThrow(() -> new BusinessException("Offer missing"));
