@@ -10,6 +10,7 @@ services:
       - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: always
     deploy:
       resources:
         limits:
@@ -27,6 +28,7 @@ services:
     container_name: personal-loan-redis
     ports:
       - "6379:6379"
+    restart: always
     deploy:
       resources:
         limits:
@@ -55,6 +57,7 @@ services:
       - KAFKA_HEAP_OPTS=-Xmx256M -Xms256M
     ports:
       - "9092:9092"
+    restart: always
     deploy:
       resources:
         limits:
@@ -90,7 +93,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SERVER_ADDRESS: 0.0.0.0
       JAVA_TOOL_OPTIONS: "-Xmx384M -Xms256M"
-    restart: unless-stopped
+    restart: always
     deploy:
       resources:
         limits:
@@ -102,18 +105,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 30s
+      start_period: 60s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
+    restart: always
     deploy:
       resources:
         limits:
