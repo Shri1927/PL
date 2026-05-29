@@ -28,6 +28,8 @@ const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchingOtp, setFetchingOtp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -126,8 +128,76 @@ const Register = () => {
     e.preventDefault();
     setError('');
 
+    // Validate all mandatory fields first
+    if (!formData.fullName.trim()) {
+      setError('Full Name is required');
+      return;
+    }
+    if (!formData.email.trim()) {
+      setError('Email Address is required');
+      return;
+    }
+    if (!formData.dob) {
+      setError('Date of Birth is required');
+      return;
+    }
+    if (!formData.city.trim()) {
+      setError('Current City is required');
+      return;
+    }
+    if (!formData.password) {
+      setError('Security Key is required');
+      return;
+    }
+    if (!formData.confirmPassword) {
+      setError('Confirm Key is required');
+      return;
+    }
+
+    // Security Key validation: min 8, max 32 characters
+    if (formData.password.length < 8) {
+      setError('Security Key must be at least 8 characters');
+      return;
+    }
+    if (formData.password.length > 32) {
+      setError('Security Key must be at most 32 characters');
+      return;
+    }
+
+    // Check passwords match
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    // Full name validation: must contain at least one alphabetic character, cannot be only special characters or numbers
+    const fullNameRegex = /^(?=.*[a-zA-Z]).{2,}$/;
+    if (!fullNameRegex.test(formData.fullName.trim())) {
+      setError('Full Name must contain at least one letter and cannot be only special characters or numbers.');
+      return;
+    }
+
+    // Date of Birth validation
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize today to start of day for comparison
+    const dobDate = new Date(formData.dob);
+    
+    // Check if date is valid
+    if (isNaN(dobDate.getTime())) {
+      setError('Please enter a valid Date of Birth.');
+      return;
+    }
+    
+    // Check year is 4 digits
+    const yearStr = formData.dob.split('-')[0];
+    if (yearStr.length !== 4) {
+      setError('Date of Birth year must be 4 digits.');
+      return;
+    }
+    
+    // Check DOB is not in future
+    if (dobDate > today) {
+      setError('Date of Birth cannot be in the future.');
       return;
     }
 
@@ -409,37 +479,52 @@ const Register = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Security Key</label>
-                        <div className="relative group">
-                          <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                          <Input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleInputChange}
-                            required
-                            className="pl-14 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
-                            placeholder="••••••••"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Confirm Key</label>
-                        <div className="relative group">
-                          <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                          <Input
-                            type="password"
-                            name="confirmPassword"
-                            value={formData.confirmPassword}
-                            onChange={handleInputChange}
-                            required
-                            className="pl-14 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
-                            placeholder="••••••••"
-                          />
-                        </div>
-                      </div>
-                    </div>
+      <div className="space-y-2">
+        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Security Key</label>
+        <div className="relative group">
+          <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
+          <Input
+            type={showPassword ? "text" : "password"}
+            name="password"
+            value={formData.password}
+            onChange={handleInputChange}
+            required
+            maxLength={32}
+            className="pl-14 pr-12 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-indigo-400 transition-colors"
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Confirm Key</label>
+        <div className="relative group">
+          <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
+          <Input
+            type={showConfirmPassword ? "text" : "password"}
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleInputChange}
+            required
+            className="pl-14 pr-12 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-indigo-400 transition-colors"
+          >
+            {showConfirmPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
+      </div>
+    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

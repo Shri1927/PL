@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api';
 import { 
   ChevronLeft, ChevronRight, CheckCircle, FileText, User, 
-  Briefcase, DollarSign, Building, ArrowRight, Shield, Lock, Activity, Compass, ShoppingBag
+  Briefcase, DollarSign, Building, ArrowRight, Shield, Lock, Activity, Compass, ShoppingBag, ChevronDown
 } from 'lucide-react';
 import Sidebar from '../PremiumDashboard/Sidebar';
 
@@ -13,10 +13,77 @@ const LoanApplicationForm = () => {
   const [searchParams] = useSearchParams();
   const queryId = searchParams.get('id');
 
-  const [step, setStep] = useState(1);
+  // Initialize state from sessionStorage if available, otherwise defaults
+  const initialState = () => {
+    const saved = sessionStorage.getItem('loanApplicationFormData');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved form data", e);
+      }
+    }
+    return {
+      // Step 1: Loan Details
+      loanPurpose: '',
+      requestedAmount: '',
+      tenureMonths: '',
+      
+      // Step 2: Personal Details
+      fatherName: '',
+      motherName: '',
+      gender: '',
+      maritalStatus: '',
+      dependents: '0',
+      currentAddress: '',
+      permanentAddress: '',
+      residentialStability: '',
+      
+      // Step 3: Employment Details
+      companyName: '',
+      employeeId: '',
+      designation: '',
+      currentExperienceMonths: '',
+      totalExperienceMonths: '',
+      officeAddress: '',
+      officialEmail: '',
+      
+      // Step 4: Financial Details
+      grossMonthlyIncome: '',
+      netTakeHomeSalary: '',
+      otherIncome: '',
+      existingEmi: '',
+      existingLoansCount: '',
+      creditCardOutstanding: '',
+      
+      // Step 5: Bank Details
+      bankName: '',
+      bankAccountNumber: '',
+      bankAccountType: '',
+      bankIfsc: '',
+      
+      declarationAccepted: false,
+    };
+  };
+
+  const [step, setStep] = useState(() => {
+    const savedStep = sessionStorage.getItem('loanApplicationStep');
+    return savedStep ? parseInt(savedStep, 10) : 1;
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(queryId);
+
+  // Persist form data and step to sessionStorage whenever they change
+  const [formData, setFormData] = useState(initialState);
+
+  useEffect(() => {
+    sessionStorage.setItem('loanApplicationFormData', JSON.stringify(formData));
+  }, [formData]);
+
+  useEffect(() => {
+    sessionStorage.setItem('loanApplicationStep', step.toString());
+  }, [step]);
 
   useEffect(() => {
     if (queryId) {
@@ -31,7 +98,7 @@ const LoanApplicationForm = () => {
       const app = response.data.data;
       
       // Populate form data
-      setFormData({
+      const loadedData = {
         loanPurpose: app.loanPurpose || '',
         requestedAmount: app.requestedAmount?.toString() || '',
         tenureMonths: app.tenureMonths?.toString() || '',
@@ -40,7 +107,7 @@ const LoanApplicationForm = () => {
         motherName: app.motherName || '',
         gender: app.gender || '',
         maritalStatus: app.maritalStatus || '',
-        dependents: app.dependents?.toString() || '',
+        dependents: app.dependents?.toString() || '0',
         currentAddress: app.currentAddress || '',
         permanentAddress: app.permanentAddress || '',
         residentialStability: app.residentialStability || '',
@@ -66,7 +133,8 @@ const LoanApplicationForm = () => {
         bankIfsc: app.bankIfsc || '',
         
         declarationAccepted: false,
-      });
+      };
+      setFormData(loadedData);
 
       // Start at the latest step based on provided ID, or step 1
       setStep(1);
@@ -79,87 +147,125 @@ const LoanApplicationForm = () => {
     }
   };
 
-  const [formData, setFormData] = useState({
-    // Step 1: Loan Details
-    loanPurpose: '',
-    requestedAmount: '',
-    tenureMonths: '',
-    
-    // Step 2: Personal Details
-    fatherName: '',
-    motherName: '',
-    gender: '',
-    maritalStatus: '',
-    dependents: '',
-    currentAddress: '',
-    permanentAddress: '',
-    residentialStability: '',
-    
-    // Step 3: Employment Details
-    companyName: '',
-    employeeId: '',
-    designation: '',
-    currentExperienceMonths: '',
-    totalExperienceMonths: '',
-    officeAddress: '',
-    officialEmail: '',
-    
-    // Step 4: Financial Details
-    grossMonthlyIncome: '',
-    netTakeHomeSalary: '',
-    otherIncome: '',
-    existingEmi: '',
-    existingLoansCount: '',
-    creditCardOutstanding: '',
-    
-    // Step 5: Bank Details
-    bankName: '',
-    bankAccountNumber: '',
-    bankAccountType: '',
-    bankIfsc: '',
-    
-    declarationAccepted: false,
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    let val: string | boolean = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    
+    // Prevent negative values for requested amount and dependents
+    if (name === 'requestedAmount' || name === 'dependents') {
+      const numVal = Number(val);
+      if (!isNaN(numVal) && numVal < 0) {
+        return;
+      }
+    }
+    
     setFormData((prev) => ({ ...prev, [name]: val }));
   };
 
   const validateStep = () => {
     setError('');
+    const nameRegex = /^(?=.*[a-zA-Z])[a-zA-Z\s'-]+$/; // Must contain at least one letter, allows letters, spaces, hyphens, apostrophes
+    const addressRegex = /^(?=.*[a-zA-Z0-9])/; // Must contain at least one alphanumeric character
+    const MIN_LOAN_AMOUNT = 10000; // ₹10,000 minimum
+    const MAX_LOAN_AMOUNT = 50000000; // ₹5 Crore maximum
+
     if (step === 1) {
-      if (!formData.loanPurpose || !formData.requestedAmount || !formData.tenureMonths) {
-        setError('Please fill all loan details');
+      if (!formData.loanPurpose) {
+        setError('Loan Purpose is required');
+        return false;
+      }
+      if (!formData.requestedAmount) {
+        setError('Requested Amount is required');
+        return false;
+      }
+      const requestedAmt = parseFloat(formData.requestedAmount);
+      if (isNaN(requestedAmt)) {
+        setError('Requested Amount must be a valid number');
+        return false;
+      }
+      if (requestedAmt < MIN_LOAN_AMOUNT) {
+        setError(`Requested Amount must be at least ₹${MIN_LOAN_AMOUNT.toLocaleString()}`);
+        return false;
+      }
+      if (requestedAmt > MAX_LOAN_AMOUNT) {
+        setError(`Requested Amount exceeds maximum limit of ₹${MAX_LOAN_AMOUNT.toLocaleString()}`);
+        return false;
+      }
+      if (!formData.tenureMonths) {
+        setError('Tenure is required');
         return false;
       }
       if (parseInt(formData.tenureMonths) < 12 || parseInt(formData.tenureMonths) > 60) {
         setError('Tenure must be between 12 and 60 months');
         return false;
       }
-      if (parseFloat(formData.requestedAmount) < 1) {
-        setError('Amount must be at least 1');
+    } else if (step === 2) {
+      if (!formData.fatherName.trim()) {
+        setError("Father's Name is required");
         return false;
       }
-    } else if (step === 2) {
-      if (!formData.gender || !formData.maritalStatus || !formData.currentAddress) {
-        setError('Please fill all mandatory personal details');
+      if (!nameRegex.test(formData.fatherName.trim())) {
+        setError("Father's Name must contain only letters, spaces, hyphens, and apostrophes");
+        return false;
+      }
+      if (!formData.motherName.trim()) {
+        setError("Mother's Name is required");
+        return false;
+      }
+      if (!nameRegex.test(formData.motherName.trim())) {
+        setError("Mother's Name must contain only letters, spaces, hyphens, and apostrophes");
+        return false;
+      }
+      if (!formData.gender) {
+        setError('Gender is required');
+        return false;
+      }
+      if (!formData.maritalStatus) {
+        setError('Marital Status is required');
+        return false;
+      }
+      if (formData.dependents === '' || formData.dependents === null || formData.dependents === undefined) {
+        setError('Dependents is required');
+        return false;
+      }
+      const dependentsNum = Number(formData.dependents);
+      if (isNaN(dependentsNum) || !Number.isInteger(dependentsNum) || dependentsNum < 0) {
+        setError('Dependents must be a non-negative whole number');
+        return false;
+      }
+      if (!formData.currentAddress.trim()) {
+        setError('Current Address is required');
+        return false;
+      }
+      if (!addressRegex.test(formData.currentAddress.trim())) {
+        setError('Current Address must contain at least one alphanumeric character');
         return false;
       }
     } else if (step === 3) {
-      if (!formData.companyName || !formData.designation) {
-        setError('Please fill mandatory employment details');
+      if (!formData.companyName) {
+        setError('Company Name is required');
+        return false;
+      }
+      if (!formData.designation) {
+        setError('Designation is required');
         return false;
       }
     } else if (step === 4) {
       if (!formData.netTakeHomeSalary) {
-        setError('Please fill net take home salary');
+        setError('Net Take Home Salary is required');
         return false;
       }
     } else if (step === 5) {
-      if (!formData.bankName || !formData.bankAccountNumber || !formData.bankIfsc) {
-        setError('Please fill all bank details');
+      if (!formData.bankName) {
+        setError('Bank Name is required');
+        return false;
+      }
+      if (!formData.bankAccountNumber) {
+        setError('Bank Account Number is required');
+        return false;
+      }
+      if (!formData.bankIfsc) {
+        setError('Bank IFSC is required');
         return false;
       }
     } else if (step === 6) {
@@ -356,22 +462,25 @@ const LoanApplicationForm = () => {
                         <div className="space-y-6">
                           <div>
                             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Loan Purpose</label>
-                            <select
-                              name="loanPurpose"
-                              value={formData.loanPurpose}
-                              onChange={handleInputChange}
-                              className="w-full bg-[#2a2a32] border border-white/10 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
-                            >
-                              <option value="">Select Purpose</option>
-                              <option value="Medical Emergency">Medical Emergency</option>
-                              <option value="Home Renovation">Home Renovation</option>
-                              <option value="Wedding">Wedding</option>
-                              <option value="Travel">Travel</option>
-                              <option value="Debt Consolidation">Debt Consolidation</option>
-                              <option value="Education">Education</option>
-                              <option value="Business Expansion">Business Expansion</option>
-                              <option value="Other">Other</option>
-                            </select>
+                            <div className="relative">
+                              <select
+                                name="loanPurpose"
+                                value={formData.loanPurpose}
+                                onChange={handleInputChange}
+                                className="w-full bg-[#2a2a32] border border-white/10 rounded-2xl py-4 px-6 pr-12 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                              >
+                                <option value="">Select Purpose</option>
+                                <option value="Medical Emergency">Medical Emergency</option>
+                                <option value="Home Renovation">Home Renovation</option>
+                                <option value="Wedding">Wedding</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Debt Consolidation">Debt Consolidation</option>
+                                <option value="Education">Education</option>
+                                <option value="Business Expansion">Business Expansion</option>
+                                <option value="Other">Other</option>
+                              </select>
+                              <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -385,25 +494,30 @@ const LoanApplicationForm = () => {
                                   value={formData.requestedAmount}
                                   onChange={handleInputChange}
                                   placeholder="1,00,000"
+                                  min="10000"
+                                  max="50000000"
                                   className="w-full bg-[#2a2a32] border border-white/10 rounded-2xl py-4 pl-12 pr-6 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all"
                                 />
                               </div>
                             </div>
                             <div>
                               <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Tenure (Months)</label>
-                              <select
-                                name="tenureMonths"
-                                value={formData.tenureMonths}
-                                onChange={handleInputChange}
-                                className="w-full bg-[#2a2a32] border border-white/10 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
-                              >
-                                <option value="">Select Tenure</option>
-                                <option value="12">12 Months</option>
-                                <option value="24">24 Months</option>
-                                <option value="36">36 Months</option>
-                                <option value="48">48 Months</option>
-                                <option value="60">60 Months</option>
-                              </select>
+                              <div className="relative">
+                                <select
+                                  name="tenureMonths"
+                                  value={formData.tenureMonths}
+                                  onChange={handleInputChange}
+                                  className="w-full bg-[#2a2a32] border border-white/10 rounded-2xl py-4 px-6 pr-12 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                                >
+                                  <option value="">Select Tenure</option>
+                                  <option value="12">12 Months</option>
+                                  <option value="24">24 Months</option>
+                                  <option value="36">36 Months</option>
+                                  <option value="48">48 Months</option>
+                                  <option value="60">60 Months</option>
+                                </select>
+                                <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -460,7 +574,7 @@ const LoanApplicationForm = () => {
                           </div>
                           <div>
                             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Dependents</label>
-                            <input type="number" name="dependents" value={formData.dependents} onChange={handleInputChange} className="w-full bg-[#2a2a32] border border-white/10 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all" />
+                            <input type="number" name="dependents" value={formData.dependents} onChange={handleInputChange} min="0" step="1" className="w-full bg-[#2a2a32] border border-white/10 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all" />
                           </div>
                         </div>
 

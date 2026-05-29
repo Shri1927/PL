@@ -1,6 +1,7 @@
 server:
   port: 8080
   address: ${SERVER_ADDRESS:0.0.0.0}
+  forward-headers-strategy: native
 
 spring:
   application:

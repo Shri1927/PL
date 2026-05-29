@@ -1,5 +1,6 @@
 package com.fintech.los.common.exception;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fintech.los.common.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -38,6 +40,22 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         return ResponseEntity.badRequest().body(
                 ApiResponse.<Void>builder().timestamp(Instant.now()).success(false).message(msg).build()
+        );
+    }
+
+    @ExceptionHandler(InvalidFormatException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidFormat(InvalidFormatException ex) {
+        String message = "Invalid format for field: " + ex.getPath().get(0).getFieldName();
+        // Check if it's a date field
+        if (ex.getTargetType() != null && ex.getTargetType().equals(LocalDate.class)) {
+            message = "Please enter a valid Date of Birth.";
+        }
+        return ResponseEntity.badRequest().body(
+                ApiResponse.<Void>builder()
+                        .timestamp(Instant.now())
+                        .success(false)
+                        .message(message)
+                        .build()
         );
     }
 

@@ -13,6 +13,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -146,21 +147,28 @@ const Login = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Password</label>
-                <div className="relative group">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors">
-                    <Lock size={18} />
-                  </div>
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="pl-14 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
-                    placeholder="••••••••"
-                  />
-                </div>
-              </div>
+        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Password</label>
+        <div className="relative group">
+          <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors">
+            <Lock size={18} />
+          </div>
+          <Input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="pl-14 pr-12 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-indigo-400 transition-colors"
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
+      </div>
 
               <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
                 <Button

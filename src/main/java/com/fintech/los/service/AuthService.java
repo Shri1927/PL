@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class AuthService {
     private static final int MAX_OTP_VERIFY_ATTEMPTS = 3;
+    private static final int OTP_VALIDITY_MINUTES = 5;
     private static final int OTP_LOCK_MINUTES = 10;
     private static final int MAX_OTP_SEND_PER_MINUTE = 5;
     private static final int MAX_LOGIN_ATTEMPTS = 5;
@@ -41,8 +42,8 @@ public class AuthService {
     public void sendOtp(SendOtpRequest request) {
         enforceOtpSendRateLimit(request.getMobile());
         String otp = String.format("%06d", new Random().nextInt(1_000_000));
-        redisTemplate.opsForValue().set("otp:" + request.getMobile(), otp, 5, TimeUnit.MINUTES);
-        log.info("\n===== OTP for mobile {} : {} =====", request.getMobile(), otp);
+        redisTemplate.opsForValue().set("otp:" + request.getMobile(), otp, OTP_VALIDITY_MINUTES, TimeUnit.MINUTES);
+        log.info("\n===== OTP for mobile {} : {} (valid for {} minutes) =====", request.getMobile(), otp, OTP_VALIDITY_MINUTES);
         redisTemplate.delete(verifyAttemptKey(request.getMobile()));
     }
 
@@ -64,16 +65,16 @@ public class AuthService {
     @Transactional
     public OtpVerifyResponse verifyOtp(OtpVerifyRequest request) {
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey(request.getMobile())))) {
-            throw new BusinessException("OTP temporarily locked. Try again later");
+            throw new BusinessException("OTP temporarily locked. Please try again after " + OTP_LOCK_MINUTES + " minutes.");
         }
         String key = "otp:" + request.getMobile();
         String otp = redisTemplate.opsForValue().get(key);
         if (otp == null || !otp.equals(request.getOtp())) {
             long attempts = redisTemplate.opsForValue().increment(verifyAttemptKey(request.getMobile()));
             redisTemplate.expire(verifyAttemptKey(request.getMobile()), 10, TimeUnit.MINUTES);
-            if (attempts >= MAX_OTP_VERIFY_ATTEMPTS) {
+            if (attempts != null && attempts >= MAX_OTP_VERIFY_ATTEMPTS) {
                 redisTemplate.opsForValue().set(lockKey(request.getMobile()), "1", OTP_LOCK_MINUTES, TimeUnit.MINUTES);
-                throw new BusinessException("Max OTP attempts reached. Locked for 10 minutes");
+                throw new BusinessException("Max OTP attempts reached. Locked for " + OTP_LOCK_MINUTES + " minutes.");
             }
             throw new BusinessException("Invalid OTP");
         }
@@ -109,6 +110,19 @@ public class AuthService {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             log.error("[AUTH] Registration failed: Email already registered '{}'", request.getEmail());
             throw new BusinessException("Email already registered");
+        }
+
+        // Validate Date of Birth
+        LocalDate dob = request.getDob();
+        // Check year is 4 digits
+        if (String.valueOf(dob.getYear()).length() != 4) {
+            log.error("[AUTH] Registration failed: Date of Birth year must be 4 digits for '{}'", request.getMobile());
+            throw new BusinessException("Date of Birth year must be 4 digits.");
+        }
+        // Check not in future
+        if (dob.isAfter(LocalDate.now())) {
+            log.error("[AUTH] Registration failed: Date of Birth is in the future for '{}'", request.getMobile());
+            throw new BusinessException("Date of Birth cannot be in the future.");
         }
         
         try {

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -26,10 +27,12 @@ public final class AuthDtos {
         @Pattern(regexp = "^[6-9][0-9]{9}$", message = "Invalid mobile number. Must be 10 digits and start with 6, 7, 8, or 9.")
         private String mobile;
         @NotBlank
+        @Pattern(regexp = "^(?=.*[a-zA-Z]).{2,}$", message = "Full Name must contain at least one letter and cannot be only special characters or numbers.")
         private String fullName;
         @Email
         private String email;
-        @NotBlank
+        @NotBlank(message = "Security Key is required")
+        @Size(min = 8, max = 32, message = "Security Key must be between 8 and 32 characters")
         private String password;
         @NotBlank
         private String city;
