@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Map;
@@ -70,7 +71,7 @@ public class AuthService {
         String key = "otp:" + request.getMobile();
         String otp = redisTemplate.opsForValue().get(key);
         if (otp == null || !otp.equals(request.getOtp())) {
-            long attempts = redisTemplate.opsForValue().increment(verifyAttemptKey(request.getMobile()));
+            Long attempts = redisTemplate.opsForValue().increment(verifyAttemptKey(request.getMobile()));
             redisTemplate.expire(verifyAttemptKey(request.getMobile()), 10, TimeUnit.MINUTES);
             if (attempts != null && attempts >= MAX_OTP_VERIFY_ATTEMPTS) {
                 redisTemplate.opsForValue().set(lockKey(request.getMobile()), "1", OTP_LOCK_MINUTES, TimeUnit.MINUTES);
