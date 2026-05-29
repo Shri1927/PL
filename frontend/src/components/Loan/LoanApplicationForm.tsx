@@ -8,13 +8,45 @@ import {
 } from 'lucide-react';
 import Sidebar from '../PremiumDashboard/Sidebar';
 
+interface FormData {
+  loanPurpose: string;
+  requestedAmount: string;
+  tenureMonths: string;
+  fatherName: string;
+  motherName: string;
+  gender: string;
+  maritalStatus: string;
+  dependents: string;
+  currentAddress: string;
+  permanentAddress: string;
+  residentialStability: string;
+  companyName: string;
+  employeeId: string;
+  designation: string;
+  currentExperienceMonths: string;
+  totalExperienceMonths: string;
+  officeAddress: string;
+  officialEmail: string;
+  grossMonthlyIncome: string;
+  netTakeHomeSalary: string;
+  otherIncome: string;
+  existingEmi: string;
+  existingLoansCount: string;
+  creditCardOutstanding: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountType: string;
+  bankIfsc: string;
+  declarationAccepted: boolean;
+}
+
 const LoanApplicationForm = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryId = searchParams.get('id');
 
   // Initialize state from sessionStorage if available, otherwise defaults
-  const initialState = () => {
+  const initialState = (): FormData => {
     const saved = sessionStorage.getItem('loanApplicationFormData');
     if (saved) {
       try {
@@ -75,7 +107,7 @@ const LoanApplicationForm = () => {
   const [applicationId, setApplicationId] = useState<string | null>(queryId);
 
   // Persist form data and step to sessionStorage whenever they change
-  const [formData, setFormData] = useState(initialState);
+  const [formData, setFormData] = useState<FormData>(initialState);
 
   useEffect(() => {
     sessionStorage.setItem('loanApplicationFormData', JSON.stringify(formData));
@@ -159,7 +191,7 @@ const LoanApplicationForm = () => {
       }
     }
     
-    setFormData((prev) => ({ ...prev, [name]: val }));
+    setFormData((prev: FormData) => ({ ...prev, [name]: val }));
   };
 
   const validateStep = () => {
