@@ -41,11 +41,24 @@ public class AuthService {
     private final StringRedisTemplate redisTemplate;
 
     public void sendOtp(SendOtpRequest request) {
+        // PL-OTP-003: Check verify-lock before issuing a new OTP.
+        // Previously, sendOtp() had no awareness of the verify-lock, so it would
+        // silently succeed while the subsequent verifyOtp() call would immediately
+        // throw "OTP temporarily locked" — confusing the user who just got an OTP.
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey(request.getMobile())))) {
+            Long ttlSeconds = redisTemplate.getExpire(lockKey(request.getMobile()), TimeUnit.SECONDS);
+            long minutesLeft = ttlSeconds != null ? (long) Math.ceil(ttlSeconds / 60.0) : OTP_LOCK_MINUTES;
+            throw new BusinessException(
+                "OTP temporarily locked due to too many failed attempts. Please try again after "
+                + minutesLeft + " minute" + (minutesLeft == 1 ? "" : "s") + "."
+            );
+        }
         enforceOtpSendRateLimit(request.getMobile());
+        // Clear stale attempt counter so fresh OTP always gets a full attempt window.
+        redisTemplate.delete(verifyAttemptKey(request.getMobile()));
         String otp = String.format("%06d", new Random().nextInt(1_000_000));
         redisTemplate.opsForValue().set("otp:" + request.getMobile(), otp, OTP_VALIDITY_MINUTES, TimeUnit.MINUTES);
         log.info("\n===== OTP for mobile {} : {} (valid for {} minutes) =====", request.getMobile(), otp, OTP_VALIDITY_MINUTES);
-        redisTemplate.delete(verifyAttemptKey(request.getMobile()));
     }
 
     public OtpResponse getOtp(String mobile) {
@@ -228,7 +241,12 @@ public class AuthService {
     private void enforceOtpSendRateLimit(String mobile) {
         String rateKey = "otp:send:rate:" + mobile;
         Long count = redisTemplate.opsForValue().increment(rateKey);
-        redisTemplate.expire(rateKey, 1, TimeUnit.MINUTES);
+        // Set expiry only on first increment (fixed-window rate limiter).
+        // Previously, expire() was called unconditionally, creating a sliding window
+        // that never expired for active users and could interfere with OTP TTL.
+        if (count != null && count == 1) {
+            redisTemplate.expire(rateKey, 1, TimeUnit.MINUTES);
+        }
         if (count != null && count > MAX_OTP_SEND_PER_MINUTE) {
             throw new BusinessException("OTP request limit exceeded. Please retry in a minute");
         }

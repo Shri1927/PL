@@ -30,8 +30,102 @@ const Register = () => {
   const [fetchingOtp, setFetchingOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [dobError, setDobError] = useState('');
+  // BUG-005: live field-level validation state for Security Key and Confirm Key
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  // CITY_001: live field-level validation state for Current City
+  const [cityError, setCityError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // BUG-003: today/maxDob used for input[max] attribute and submit-time range check
+  const todayIso = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const currentYear = new Date().getFullYear();
+
+  const validateDob = (value: string): string => {
+    if (!value) return 'Date of Birth is required';
+    // Must be strictly YYYY-MM-DD with a 4-digit year
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Please enter a valid Date of Birth (YYYY-MM-DD).';
+    const year = parseInt(value.split('-')[0], 10);
+    if (year < 1900 || year > currentYear) return `Year must be between 1900 and ${currentYear}.`;
+    const dobDate = new Date(value);
+    if (isNaN(dobDate.getTime())) return 'Please enter a valid Date of Birth.';
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (dobDate > today) return 'Date of Birth cannot be in the future.';
+    return '';
+  };
+
+  const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, dob: value }));
+    setDobError(validateDob(value));
+    setError('');
+  };
+
+  // DOB_002: onBlur catches the case where Chrome silently resets the input to ""
+  // for extreme years (>9999) without firing a meaningful onChange — so the user
+  // sees the error the moment they tab/click away from the field.
+  const handleDobBlur = () => {
+    setDobError(validateDob(formData.dob));
+  };
+
+  // CITY_001: City validator — must contain at least one letter.
+  // Rejects special-character-only values like "@@@@@@@@@".
+  const validateCity = (value: string): string => {
+    if (!value.trim()) return 'Current City is required';
+    // Allow letters (including accented), spaces, hyphens, apostrophes, dots.
+    // Must contain at least one alphabetic character.
+    if (!/^[a-zA-Z\u00C0-\u024F][\w\u00C0-\u024F\s\-''.]*$/.test(value.trim())) {
+      return 'Please enter a valid city name (letters only, no special characters).';
+    }
+    return '';
+  };
+
+  // CITY_001: Live handler — validates on every keystroke.
+  const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, city: value }));
+    setCityError(validateCity(value));
+    setError('');
+  };
+
+  // BUG-005: Security Key validator — rules: 8–32 chars.
+  // Returns an error string or '' when valid.
+  const validatePassword = (value: string): string => {
+    if (!value) return 'Security Key is required';
+    if (value.length < 8) return `Too short — minimum 8 characters (${value.length}/8)`;
+    if (value.length > 32) return 'Security Key must be at most 32 characters';
+    return '';
+  };
+
+  // Live handler for Security Key: validates on every keystroke and re-validates
+  // the Confirm Key if it already has a value, so mismatch errors update in real time.
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => {
+      const next = { ...prev, password: value };
+      // Re-validate confirm field against the new password value
+      if (prev.confirmPassword) {
+        setConfirmPasswordError(
+          value !== prev.confirmPassword ? 'Passwords do not match' : ''
+        );
+      }
+      return next;
+    });
+    setPasswordError(validatePassword(value));
+    setError('');
+  };
+
+  // Live handler for Confirm Key: shows mismatch error immediately.
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, confirmPassword: value }));
+    setConfirmPasswordError(
+      value && value !== formData.password ? 'Passwords do not match' : ''
+    );
+    setError('');
+  };
 
   // Sync state to sessionStorage whenever it changes to ensure persistence across page refreshes (BUG-002)
   useEffect(() => {
@@ -142,31 +236,37 @@ const Register = () => {
       return;
     }
     if (!formData.city.trim()) {
-      setError('Current City is required');
+      const e = 'Current City is required';
+      setError(e); setCityError(e);
       return;
     }
+    // CITY_001: reject special-char-only city values at submit as final gate.
+    const cityErr = validateCity(formData.city);
+    if (cityErr) { setError(cityErr); setCityError(cityErr); return; }
     if (!formData.password) {
-      setError('Security Key is required');
+      const e = 'Security Key is required';
+      setError(e); setPasswordError(e);
       return;
     }
     if (!formData.confirmPassword) {
-      setError('Confirm Key is required');
+      const e = 'Confirm Key is required';
+      setError(e); setConfirmPasswordError(e);
       return;
     }
 
-    // Security Key validation: min 8, max 32 characters
-    if (formData.password.length < 8) {
-      setError('Security Key must be at least 8 characters');
-      return;
-    }
-    if (formData.password.length > 32) {
-      setError('Security Key must be at most 32 characters');
-      return;
-    }
+    // BUG-005: Security Key validation — use the same validator as the live handler.
+    const pwErr = validatePassword(formData.password);
+    if (pwErr) { setError(pwErr); setPasswordError(pwErr); return; }
 
-    // Check passwords match
+    // Confirm Key: maxLength=32 enforced at input level; mismatch check here as final gate.
+    if (formData.confirmPassword.length > 32) {
+      const e = 'Confirm Key must be at most 32 characters';
+      setError(e); setConfirmPasswordError(e);
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      const e = 'Passwords do not match';
+      setError(e); setConfirmPasswordError(e);
       return;
     }
 
@@ -177,27 +277,12 @@ const Register = () => {
       return;
     }
 
-    // Date of Birth validation
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize today to start of day for comparison
-    const dobDate = new Date(formData.dob);
-    
-    // Check if date is valid
-    if (isNaN(dobDate.getTime())) {
-      setError('Please enter a valid Date of Birth.');
-      return;
-    }
-    
-    // Check year is 4 digits
-    const yearStr = formData.dob.split('-')[0];
-    if (yearStr.length !== 4) {
-      setError('Date of Birth year must be 4 digits.');
-      return;
-    }
-    
-    // Check DOB is not in future
-    if (dobDate > today) {
-      setError('Date of Birth cannot be in the future.');
+    // UI_019: DOB errors now surface ONLY as inline field errors (setDobError).
+    // Previously setError() was also called, pushing DOB errors into the global
+    // PROCESS ERROR banner — inconsistent with all other inline-validated fields.
+    const dobValidationError = validateDob(formData.dob);
+    if (dobValidationError) {
+      setDobError(dobValidationError);
       return;
     }
 
@@ -316,6 +401,7 @@ const Register = () => {
                   ? handleVerifyOtp
                   : handleRegisterProfile
               }
+              noValidate
               className="space-y-8"
             >
               <AnimatePresence mode="wait">
@@ -438,27 +524,40 @@ const Register = () => {
                             type="date"
                             name="dob"
                             value={formData.dob}
-                            onChange={handleInputChange}
+                            onChange={handleDobChange}
+                            onBlur={handleDobBlur}
                             required
-                            className="pl-14 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
+                            min="1900-01-01"
+                            max={todayIso}
+                            className={`pl-14 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner ${dobError ? 'border-red-500/40' : ''}`}
                           />
                         </div>
+                        {/* DOB_002 + UI_019: inline error below field, never in global banner */}
+                        {dobError && (
+                          <p className="text-xs text-red-400 font-medium mt-1 ml-1">{dobError}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Current City</label>
-                        <div className="relative group">
-                          <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                          <Input
-                            type="text"
-                            name="city"
-                            value={formData.city}
-                            onChange={handleInputChange}
-                            required
-                            className="pl-14 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
-                            placeholder="Mumbai"
-                          />
-                        </div>
-                      </div>
+                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Current City</label>
+                         <div className="relative group">
+                           <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
+                           <Input
+                             type="text"
+                             name="city"
+                             value={formData.city}
+                             onChange={handleCityChange}
+                             required
+                             className={`pl-14 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner ${
+                               cityError ? 'border-red-500/40' : ''
+                             }`}
+                             placeholder="Mumbai"
+                           />
+                         </div>
+                         {/* CITY_001: inline error shown live, not just on submit */}
+                         {cityError && (
+                           <p className="text-xs text-red-400 font-medium mt-1 ml-1">{cityError}</p>
+                         )}
+                       </div>
                     </div>
 
                     <div className="space-y-2">
@@ -478,19 +577,34 @@ const Register = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Security Key */}
       <div className="space-y-2">
-        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Security Key</label>
+        <div className="flex items-center justify-between">
+          <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Security Key</label>
+          {/* BUG-005: live character counter — amber near limit, red at cap */}
+          <span className={`text-[10px] font-mono tabular-nums transition-colors ${
+            formData.password.length >= 32
+              ? 'text-red-400 font-bold'
+              : formData.password.length >= 24
+              ? 'text-amber-400'
+              : 'text-gray-600'
+          }`}>
+            {formData.password.length} / 32
+          </span>
+        </div>
         <div className="relative group">
           <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors" size={18} />
           <Input
             type={showPassword ? "text" : "password"}
             name="password"
             value={formData.password}
-            onChange={handleInputChange}
+            onChange={handlePasswordChange}
             required
             maxLength={32}
-            className="pl-14 pr-12 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
+            className={`pl-14 pr-12 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner ${
+              passwordError ? 'border-red-500/40' : ''
+            }`}
             placeholder="••••••••"
           />
           <button
@@ -501,7 +615,14 @@ const Register = () => {
             {showPassword ? "🙈" : "👁️"}
           </button>
         </div>
+        {/* Inline error OR hint text — hint shown until user starts typing */}
+        {passwordError
+          ? <p className="text-xs text-red-400 font-medium ml-1 mt-1">{passwordError}</p>
+          : <p className="text-[11px] text-gray-600 ml-1 mt-1">8–32 characters required</p>
+        }
       </div>
+
+      {/* Confirm Key */}
       <div className="space-y-2">
         <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Confirm Key</label>
         <div className="relative group">
@@ -510,9 +631,12 @@ const Register = () => {
             type={showConfirmPassword ? "text" : "password"}
             name="confirmPassword"
             value={formData.confirmPassword}
-            onChange={handleInputChange}
+            onChange={handleConfirmPasswordChange}
             required
-            className="pl-14 pr-12 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner"
+            maxLength={32}
+            className={`pl-14 pr-12 h-14 bg-[#1e1e24] border-white/5 rounded-2xl focus:border-indigo-500/50 focus:bg-[#25252d] transition-all text-white shadow-inner ${
+              confirmPasswordError ? 'border-red-500/40' : ''
+            }`}
             placeholder="••••••••"
           />
           <button
@@ -523,6 +647,11 @@ const Register = () => {
             {showConfirmPassword ? "🙈" : "👁️"}
           </button>
         </div>
+        {/* BUG-005: inline mismatch error with no wait for submit */}
+        {confirmPasswordError
+          ? <p className="text-xs text-red-400 font-medium ml-1 mt-1">{confirmPasswordError}</p>
+          : <p className="text-[11px] text-gray-600 ml-1 mt-1">Must match Security Key</p>
+        }
       </div>
     </div>
                   </motion.div>

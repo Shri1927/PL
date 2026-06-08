@@ -4,6 +4,7 @@ import com.fintech.los.domain.loan.LoanEnums.EmploymentType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -36,7 +37,11 @@ public final class AuthDtos {
         private String password;
         @NotBlank
         private String city;
-        @NotNull
+        // BUG-003: @Past rejects any date >= today at Bean Validation layer (clean 400),
+        // preventing extreme years from reaching the service. The service retains its own
+        // 4-digit year check as a third line of defence for edge cases (e.g. year 0 or 999).
+        @NotNull(message = "Date of Birth is required")
+        @Past(message = "Date of Birth must be in the past")
         private LocalDate dob;
         @NotNull
         private EmploymentType employmentType;

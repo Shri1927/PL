@@ -45,7 +45,20 @@ public final class LoanWorkflowDtos {
         private String gender;
         private String maritalStatus;
         private Integer dependents;
+        // Address_003: require at least one letter — rejects numeric-only values like "123456789".
+        // Pattern uses a lookahead so the field remains optional (null is allowed for partial drafts)
+        // but if a value IS provided it must contain at least one alphabetic character.
+        @Pattern(
+            regexp = "^$|(?=.*[a-zA-Z]).+",
+            message = "Current Address must contain at least one letter. Numeric-only values are not valid addresses."
+        )
+        @jakarta.validation.constraints.Size(max = 500, message = "Current Address must not exceed 500 characters")
         private String currentAddress;
+        @Pattern(
+            regexp = "^$|(?=.*[a-zA-Z]).+",
+            message = "Permanent Address must contain at least one letter."
+        )
+        @jakarta.validation.constraints.Size(max = 500, message = "Permanent Address must not exceed 500 characters")
         private String permanentAddress;
         private String residentialStability;
 
@@ -55,6 +68,11 @@ public final class LoanWorkflowDtos {
         private String designation;
         private Integer currentExperienceMonths;
         private Integer totalExperienceMonths;
+        @Pattern(
+            regexp = "^$|(?=.*[a-zA-Z]).+",
+            message = "Office Address must contain at least one letter. Numeric-only values are not valid addresses."
+        )
+        @jakarta.validation.constraints.Size(max = 500, message = "Office Address must not exceed 500 characters")
         private String officeAddress;
         private String officialEmail;
 
