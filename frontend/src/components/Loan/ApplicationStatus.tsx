@@ -565,8 +565,8 @@ const ApplicationStatus = () => {
     setTimeout(() => {
       performAction(async () => {
         await api.post(`/workflow/applications/${applicationId}/disbursement`, {
-          bankAccount: disbForm.bankAccount,
-          ifsc: disbForm.ifsc,
+          bankAccount: disbForm.bankAccount || application?.bankAccountNumber || '',
+          ifsc: disbForm.ifsc || application?.bankIfsc || '',
         });
       }, 'Funds successfully disbursed! UTR generated and SMS/Email sent.');
       setSimulatedDisbAction('');
@@ -1840,7 +1840,7 @@ const ApplicationStatus = () => {
                       </div>
                     </div>
 
-                    {activeStageId > maxAccessibleStage || (application?.status !== 'DISBURSED' && application?.status !== 'ACTIVE') ? (
+                    {activeStageId > maxAccessibleStage ? (
                       <div className="bg-[#2a2a32] border border-white/5 p-10 rounded-[40px] text-center">
                         <div className="w-24 h-24 bg-amber-500/10 rounded-[32px] flex items-center justify-center mx-auto mb-6 text-amber-400">
                           <motion.div
@@ -1857,6 +1857,49 @@ const ApplicationStatus = () => {
                           Once approved, your funds will be transferred and your active loan repayment dashboard will be unlocked.
                         </p>
                         <div className="flex justify-center gap-4">
+                          <button 
+                            onClick={fetchFullDetails}
+                            className="px-8 py-4 bg-[#1e1e24] text-white rounded-2xl font-black text-xs uppercase tracking-widest border border-white/5 hover:bg-[#16161a] transition-all flex items-center gap-2"
+                          >
+                            <RotateCcw size={16} />
+                            Check Status
+                          </button>
+                        </div>
+                      </div>
+                    ) : application?.status !== 'DISBURSED' && application?.status !== 'ACTIVE' ? (
+                      <div className="bg-[#2a2a32] border border-white/5 p-10 rounded-[40px] text-center">
+                        <div className="w-24 h-24 bg-emerald-500/10 rounded-[32px] flex items-center justify-center mx-auto mb-6 text-emerald-400">
+                          <DollarSign size={48} />
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-4">Ready for Disbursement</h3>
+                        <p className="text-gray-500 max-w-lg mx-auto mb-4 font-medium leading-relaxed text-sm">
+                          Your loan has been approved and the agreement is signed. Click below to initiate the fund transfer to your registered bank account.
+                        </p>
+                        {simulatedDisbAction && (
+                          <div className="mb-6 p-4 bg-black/30 rounded-2xl border border-indigo-500/20">
+                            <p className="text-indigo-300 text-xs font-bold animate-pulse">{simulatedDisbAction}</p>
+                          </div>
+                        )}
+                        <div className="flex justify-center gap-4">
+                          <button 
+                            onClick={handleDisbursement}
+                            disabled={actionLoading}
+                            className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-emerald-700 disabled:opacity-50 transition-all flex items-center gap-2"
+                          >
+                            {actionLoading ? (
+                              <>
+                                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+                                  <RotateCcw size={16} />
+                                </motion.div>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <DollarSign size={16} />
+                                Disburse Funds
+                              </>
+                            )}
+                          </button>
                           <button 
                             onClick={fetchFullDetails}
                             className="px-8 py-4 bg-[#1e1e24] text-white rounded-2xl font-black text-xs uppercase tracking-widest border border-white/5 hover:bg-[#16161a] transition-all flex items-center gap-2"
